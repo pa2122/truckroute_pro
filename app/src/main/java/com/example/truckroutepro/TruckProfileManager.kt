@@ -20,6 +20,7 @@ object TruckProfileManager {
             lengthFeet = 53.0,
             trailerType = "53 ft Dry Van / Reefer",
             axleCount = 5,
+            maxSpeedMph = 65,
             isHazmat = false
         ),
         TruckProfile(
@@ -32,6 +33,7 @@ object TruckProfileManager {
             lengthFeet = 53.0,
             trailerType = "53 ft Flatbed / Stepdeck",
             axleCount = 5,
+            maxSpeedMph = 65,
             isHazmat = false
         ),
         TruckProfile(
@@ -44,6 +46,7 @@ object TruckProfileManager {
             lengthFeet = 53.0,
             trailerType = "Tanker / Container / Specialty",
             axleCount = 7,
+            maxSpeedMph = 62,
             isHazmat = false
         )
     )
@@ -72,6 +75,7 @@ object TruckProfileManager {
                         lengthFeet = obj.optDouble("lengthFeet", 53.0),
                         trailerType = obj.optString("trailerType", "53 ft Dry Van / Reefer"),
                         axleCount = obj.optInt("axleCount", 5),
+                        maxSpeedMph = obj.optInt("maxSpeedMph", 65),
                         isHazmat = obj.optBoolean("isHazmat", false)
                     )
                 )
@@ -96,6 +100,7 @@ object TruckProfileManager {
                 put("lengthFeet", p.lengthFeet)
                 put("trailerType", p.trailerType)
                 put("axleCount", p.axleCount)
+                put("maxSpeedMph", p.maxSpeedMph)
                 put("isHazmat", p.isHazmat)
             }
             array.put(obj)

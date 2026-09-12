@@ -12,6 +12,7 @@ data class TruckProfile(
     val lengthFeet: Double = 53.0,
     val trailerType: String = "53 ft Dry Van / Reefer",
     val axleCount: Int = 5,
+    val maxSpeedMph: Int = 65,
     val isHazmat: Boolean = false
 ) {
     val totalHeightInFeet: Double

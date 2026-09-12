@@ -258,6 +258,7 @@ fun TruckRouteProApp() {
                                     Text("• Width: ${activeProfile.widthInches.toInt()}\" (8.5 ft)", style = MaterialTheme.typography.bodySmall)
                                     Text("• Vehicle Type: ${activeProfile.trailerType}", style = MaterialTheme.typography.bodySmall)
                                     Text("• Axles: ${activeProfile.axleCount} Axles", style = MaterialTheme.typography.bodySmall)
+                                    Text("• Governed Speed: ${activeProfile.maxSpeedMph} MPH", style = MaterialTheme.typography.bodySmall)
                                     Text("• Hazmat: ${if (activeProfile.isHazmat) "Class 1-9 Active ⚠️" else "Non-Hazmat Standard"}", style = MaterialTheme.typography.bodySmall)
                                 }
                             }

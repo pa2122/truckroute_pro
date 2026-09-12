@@ -81,9 +81,12 @@ object TruckLvrRoutingService {
                         }
 
                         val distanceMiles = totalMeters / 1609.34
-                        val durationMins = (totalSecs / 60.0).toInt()
+                        val rawDurationMins = (totalSecs / 60.0).toInt()
+                        val truckSpeedMph = if (profile.maxSpeedMph > 0) profile.maxSpeedMph else 65
+                        val truckSpeedDurationMins = ((distanceMiles / truckSpeedMph) * 60).toInt()
+                        val durationMins = maxOf(rawDurationMins, truckSpeedDurationMins)
 
-                        val warningMsg = "✅ LVR Truck Safe Route Verified: Clears ${profile.formattedHeight} | Max ${profile.weightLbs.toInt()} lbs"
+                        val warningMsg = "✅ LVR Truck Safe Route Verified: Clears ${profile.formattedHeight} | Max ${profile.weightLbs.toInt()} lbs | Governed ${truckSpeedMph} MPH"
 
                         return@withContext TruckRouteResult(
                             polylinePoints = points,
@@ -104,7 +107,7 @@ object TruckLvrRoutingService {
                     return@withContext TruckRouteResult(
                         polylinePoints = listOf(origin, destination),
                         distanceMiles = estimateDistanceMiles(origin, destination),
-                        durationMins = estimateDurationMins(origin, destination),
+                        durationMins = estimateDurationMins(origin, destination, profile.maxSpeedMph),
                         warningMessage = apiStatusMsg,
                         navSteps = listOf(
                             TruckNavStep("Proceed on truck-approved route to destination", "Direct", "⬆️", origin)
@@ -115,7 +118,7 @@ object TruckLvrRoutingService {
                 return@withContext TruckRouteResult(
                     polylinePoints = listOf(origin, destination),
                     distanceMiles = estimateDistanceMiles(origin, destination),
-                    durationMins = estimateDurationMins(origin, destination),
+                    durationMins = estimateDurationMins(origin, destination, profile.maxSpeedMph),
                     warningMessage = "⚠️ Google API HTTP $responseCode Error (Displaying fallback path)",
                     navSteps = listOf(
                         TruckNavStep("Proceed on truck-approved route to destination", "Direct", "⬆️", origin)
@@ -130,7 +133,7 @@ object TruckLvrRoutingService {
         TruckRouteResult(
             polylinePoints = listOf(origin, destination),
             distanceMiles = estimateDistanceMiles(origin, destination),
-            durationMins = estimateDurationMins(origin, destination),
+            durationMins = estimateDurationMins(origin, destination, profile.maxSpeedMph),
             warningMessage = "Offline Mode: Direct path rendered for ${profile.formattedHeight} truck.",
             navSteps = listOf(
                 TruckNavStep("Proceed on truck-approved route to destination", "Direct", "⬆️", origin)
@@ -179,9 +182,10 @@ object TruckLvrRoutingService {
         return (results[0] / 1609.34) * 1.25
     }
 
-    private fun estimateDurationMins(start: LatLng, end: LatLng): Int {
+    private fun estimateDurationMins(start: LatLng, end: LatLng, maxSpeedMph: Int = 65): Int {
         val miles = estimateDistanceMiles(start, end)
-        return (miles / 55.0 * 60.0).toInt()
+        val speed = if (maxSpeedMph > 0) maxSpeedMph.toDouble() else 65.0
+        return (miles / speed * 60.0).toInt()
     }
 }
 

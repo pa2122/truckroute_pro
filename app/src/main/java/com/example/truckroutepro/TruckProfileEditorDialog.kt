@@ -45,6 +45,7 @@ fun TruckProfileEditorDialog(
     var widthStr by remember { mutableStateOf(initialProfile.widthInches.toInt().toString()) }
     var selectedTrailerType by remember { mutableStateOf(initialProfile.trailerType) }
     var selectedAxles by remember { mutableStateOf(initialProfile.axleCount) }
+    var maxSpeedStr by remember { mutableStateOf(initialProfile.maxSpeedMph.toString()) }
     var isHazmat by remember { mutableStateOf(initialProfile.isHazmat) }
 
     val trailerOptions = listOf(
@@ -122,6 +123,17 @@ fun TruckProfileEditorDialog(
                             onValueChange = { widthStr = it.filter { char -> char.isDigit() } },
                             label = { Text("Width (Inches)") },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+
+                    item {
+                        OutlinedTextField(
+                            value = maxSpeedStr,
+                            onValueChange = { maxSpeedStr = it.filter { char -> char.isDigit() } },
+                            label = { Text("Truck Speed Limit / Governed Speed (MPH)") },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            singleLine = true,
                             modifier = Modifier.fillMaxWidth()
                         )
                     }
@@ -217,6 +229,7 @@ fun TruckProfileEditorDialog(
                     val parsedWeight = weightStr.toDoubleOrNull() ?: 80000.0
                     val parsedWidth = widthStr.toDoubleOrNull() ?: 102.0
                     val parsedLength = if (selectedTrailerType.contains("48")) 48.0 else 53.0
+                    val parsedMaxSpeed = maxSpeedStr.toIntOrNull() ?: 65
 
                     val updatedProfile = initialProfile.copy(
                         profileName = profileNameStr.ifBlank { "Custom Truck" },
@@ -227,6 +240,7 @@ fun TruckProfileEditorDialog(
                         lengthFeet = parsedLength,
                         trailerType = selectedTrailerType,
                         axleCount = selectedAxles,
+                        maxSpeedMph = parsedMaxSpeed,
                         isHazmat = isHazmat
                     )
                     onSave(updatedProfile)
