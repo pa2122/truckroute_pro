@@ -62,7 +62,8 @@ import java.util.Locale
 @Composable
 fun TruckLvrMapScreen(
     truckProfile: TruckProfile,
-    onBack: () -> Unit,
+    orientationMode: String = "SMART_AUTO",
+    onBack: () -> Unit = {},
     onOpenDrawer: () -> Unit
 ) {
     val context = LocalContext.current
@@ -106,8 +107,6 @@ fun TruckLvrMapScreen(
     }
 
     var truckLocation by remember { mutableStateOf(LatLng(39.8283, -98.5795)) }
-    var orientationMode by remember { mutableStateOf("SMART_AUTO") }
-    var orientationDropdownExpanded by remember { mutableStateOf(false) }
     var truckHeading by remember { mutableFloatStateOf(0f) }
     var hasCenteredMap by remember { mutableStateOf(false) }
     var routeResult by remember { mutableStateOf<TruckRouteResult?>(null) }
@@ -273,57 +272,12 @@ fun TruckLvrMapScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                    OutlinedButton(onClick = onOpenDrawer) { Text("☰") }
-                    OutlinedButton(onClick = { triggerGpsUpdate() }) { Text("🎯") }
-                    Box {
-                        OutlinedButton(onClick = { orientationDropdownExpanded = true }) {
-                            val label = when (orientationMode) {
-                                "NORTH_UP" -> "🧭 North"
-                                "HEADING_UP" -> "⬆️ Driving"
-                                else -> "🧠 Auto"
-                            }
-                            Text(label)
-                        }
-                        DropdownMenu(
-                            expanded = orientationDropdownExpanded,
-                            onDismissRequest = { orientationDropdownExpanded = false }
-                        ) {
-                            DropdownMenuItem(
-                                text = { Text("🧠 Smart Auto (North > 20mi, Driving ≤ 20mi)") },
-                                onClick = {
-                                    orientationMode = "SMART_AUTO"
-                                    orientationDropdownExpanded = false
-                                    val dist = routeResult?.distanceMiles ?: 999.0
-                                    updateCameraOrientation(truckLocation, truckHeading, dist)
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("🧭 North-Up Always") },
-                                onClick = {
-                                    orientationMode = "NORTH_UP"
-                                    orientationDropdownExpanded = false
-                                    val dist = routeResult?.distanceMiles ?: 999.0
-                                    updateCameraOrientation(truckLocation, truckHeading, dist)
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("⬆️ Driving Direction Up Always") },
-                                onClick = {
-                                    orientationMode = "HEADING_UP"
-                                    orientationDropdownExpanded = false
-                                    val dist = routeResult?.distanceMiles ?: 999.0
-                                    updateCameraOrientation(truckLocation, truckHeading, dist)
-                                }
-                            )
-                        }
-                    }
-                }
+                OutlinedButton(onClick = onOpenDrawer) { Text("☰") }
 
                 Button(
                     onClick = { showAddressDialog = true },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondaryContainer, contentColor = MaterialTheme.colorScheme.onSecondaryContainer),
-                    modifier = Modifier.weight(1f).padding(horizontal = 6.dp)
+                    modifier = Modifier.weight(1f).padding(start = 8.dp)
                 ) {
                     Text(if (destinationAddressText.isNotBlank()) "📍 $destinationAddressText" else "🔍 Search Destination", maxLines = 2)
                 }
@@ -443,6 +397,23 @@ fun TruckLvrMapScreen(
                         )
                     }
                 }
+            }
+        }
+
+        // 🎯 GPS Locate Button (Above Speed Sign, Bottom Right)
+        Surface(
+            color = MaterialTheme.colorScheme.surface,
+            shape = RoundedCornerShape(12.dp),
+            shadowElevation = 6.dp,
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(bottom = 200.dp, end = 16.dp)
+        ) {
+            OutlinedButton(
+                onClick = { triggerGpsUpdate() },
+                colors = ButtonDefaults.outlinedButtonColors(containerColor = MaterialTheme.colorScheme.surface)
+            ) {
+                Text("🎯 Locate")
             }
         }
 

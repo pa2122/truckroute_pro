@@ -114,6 +114,8 @@ fun TruckRouteProApp() {
     }
 
     var profileDropdownExpanded by remember { mutableStateOf(false) }
+    var orientationDropdownExpanded by remember { mutableStateOf(false) }
+    var selectedOrientationMode by remember { mutableStateOf("SMART_AUTO") }
     var vehicleSectionExpanded by remember { mutableStateOf(true) }
     var navigationSectionExpanded by remember { mutableStateOf(true) }
 
@@ -251,6 +253,57 @@ fun TruckRouteProApp() {
                         }
                     }
 
+                    HorizontalDivider()
+
+                    // 🧭 Map Controls Section
+                    Text("🧭 Map Orientation Mode", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+
+                    ExposedDropdownMenuBox(
+                        expanded = orientationDropdownExpanded,
+                        onExpandedChange = { orientationDropdownExpanded = !orientationDropdownExpanded }
+                    ) {
+                        OutlinedTextField(
+                            value = when (selectedOrientationMode) {
+                                "NORTH_UP" -> "🧭 North-Up Always"
+                                "HEADING_UP" -> "⬆️ Driving Direction Up Always"
+                                else -> "🧠 Smart Auto (North > 20mi, Driving ≤ 20mi)"
+                            },
+                            onValueChange = {},
+                            readOnly = true,
+                            label = { Text("Map Camera Orientation") },
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = orientationDropdownExpanded) },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .menuAnchor(type = MenuAnchorType.PrimaryNotEditable, enabled = true)
+                        )
+                        ExposedDropdownMenu(
+                            expanded = orientationDropdownExpanded,
+                            onDismissRequest = { orientationDropdownExpanded = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("🧠 Smart Auto-Switch (North > 20mi, Driving ≤ 20mi)") },
+                                onClick = {
+                                    selectedOrientationMode = "SMART_AUTO"
+                                    orientationDropdownExpanded = false
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("🧭 North-Up Always") },
+                                onClick = {
+                                    selectedOrientationMode = "NORTH_UP"
+                                    orientationDropdownExpanded = false
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("⬆️ Driving Direction Up Always") },
+                                onClick = {
+                                    selectedOrientationMode = "HEADING_UP"
+                                    orientationDropdownExpanded = false
+                                }
+                            )
+                        }
+                    }
+
                     Spacer(modifier = Modifier.weight(1f))
                     HorizontalDivider()
                     Text("Active: ${activeProfile.profileName} (${activeProfile.formattedHeight} | ${activeProfile.weightLbs.toInt()} lbs | ${activeProfile.maxSpeedMph} MPH)", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
@@ -262,6 +315,7 @@ fun TruckRouteProApp() {
             "map" -> {
                 TruckLvrMapScreen(
                     truckProfile = activeProfile,
+                    orientationMode = selectedOrientationMode,
                     onBack = { currentScreen = "home" },
                     onOpenDrawer = { scope.launch { drawerState.open() } }
                 )
