@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -17,7 +19,7 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        val localProps = java.util.Properties()
+        val localProps = Properties()
         val localFile = rootProject.file("local.properties")
         if (localFile.exists()) {
             localProps.load(localFile.inputStream())
