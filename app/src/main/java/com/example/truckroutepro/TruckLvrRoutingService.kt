@@ -93,7 +93,34 @@ object TruckLvrRoutingService {
                             navSteps = stepsList
                         )
                     }
+                } else {
+                    val apiStatusMsg = when (status) {
+                        "REQUEST_DENIED" -> "⚠️ Google API Status: REQUEST_DENIED (Enable Directions API in Google Cloud Console)"
+                        "OVER_QUERY_LIMIT" -> "⚠️ Google API Status: OVER_QUERY_LIMIT (API quota exceeded)"
+                        "ZERO_RESULTS" -> "⚠️ Google API Status: ZERO_RESULTS (No valid truck route found)"
+                        "INVALID_REQUEST" -> "⚠️ Google API Status: INVALID_REQUEST (Check address coordinates)"
+                        else -> "⚠️ Google API Status: $status (Displaying fallback path)"
+                    }
+                    return@withContext TruckRouteResult(
+                        polylinePoints = listOf(origin, destination),
+                        distanceMiles = estimateDistanceMiles(origin, destination),
+                        durationMins = estimateDurationMins(origin, destination),
+                        warningMessage = apiStatusMsg,
+                        navSteps = listOf(
+                            TruckNavStep("Proceed on truck-approved route to destination", "Direct", "⬆️", origin)
+                        )
+                    )
                 }
+            } else {
+                return@withContext TruckRouteResult(
+                    polylinePoints = listOf(origin, destination),
+                    distanceMiles = estimateDistanceMiles(origin, destination),
+                    durationMins = estimateDurationMins(origin, destination),
+                    warningMessage = "⚠️ Google API HTTP $responseCode Error (Displaying fallback path)",
+                    navSteps = listOf(
+                        TruckNavStep("Proceed on truck-approved route to destination", "Direct", "⬆️", origin)
+                    )
+                )
             }
         } catch (e: Exception) {
             e.printStackTrace()

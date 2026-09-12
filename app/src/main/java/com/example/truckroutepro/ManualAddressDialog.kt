@@ -62,7 +62,9 @@ fun ManualAddressDialog(
                     value = originInput,
                     onValueChange = { originInput = it },
                     label = { Text("Origin / Shipper Address") },
-                    singleLine = true,
+                    singleLine = false,
+                    minLines = 2,
+                    maxLines = 3,
                     modifier = Modifier.fillMaxWidth()
                 )
 
@@ -70,7 +72,9 @@ fun ManualAddressDialog(
                     value = destInput,
                     onValueChange = { destInput = it },
                     label = { Text("Destination / Consignee Address") },
-                    singleLine = true,
+                    singleLine = false,
+                    minLines = 2,
+                    maxLines = 3,
                     modifier = Modifier.fillMaxWidth()
                 )
 

@@ -53,6 +53,7 @@ import com.google.maps.android.compose.MarkerState
 import com.google.maps.android.compose.Polyline
 import com.google.maps.android.compose.rememberCameraPositionState
 import kotlinx.coroutines.launch
+import java.util.Locale
 
 @Composable
 fun TruckLvrMapScreen(
@@ -211,7 +212,7 @@ fun TruckLvrMapScreen(
             uiSettings = MapUiSettings(zoomControlsEnabled = true, myLocationButtonEnabled = true)
         ) {
             Marker(
-                state = MarkerState(position = truckLocation),
+                state = remember(truckLocation) { MarkerState(position = truckLocation) },
                 title = "🚛 Truck Location (${truckProfile.profileName})",
                 snippet = "Height: ${truckProfile.formattedHeight} | Weight: ${truckProfile.weightLbs.toInt()} lbs"
             )
@@ -219,7 +220,7 @@ fun TruckLvrMapScreen(
             val dest = destinationLatLng
             if (dest != null) {
                 Marker(
-                    state = MarkerState(position = dest),
+                    state = remember(dest) { MarkerState(position = dest) },
                     title = "📍 Destination",
                     snippet = destinationAddressText
                 )
@@ -234,59 +235,89 @@ fun TruckLvrMapScreen(
             }
         }
 
+        // 🔝 Sleek Compact Top Bar
+        Surface(
+            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
+            shape = RoundedCornerShape(12.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp)
+                .align(Alignment.TopCenter)
+        ) {
+            Row(
+                modifier = Modifier.padding(8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    OutlinedButton(onClick = onOpenDrawer) { Text("☰") }
+                    OutlinedButton(onClick = { triggerGpsUpdate() }) { Text("🎯") }
+                }
+
+                Button(
+                    onClick = { showAddressDialog = true },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondaryContainer, contentColor = MaterialTheme.colorScheme.onSecondaryContainer),
+                    modifier = Modifier.weight(1f).padding(horizontal = 6.dp)
+                ) {
+                    Text(if (destinationAddressText.isNotBlank()) "📍 $destinationAddressText" else "🔍 Search Destination", maxLines = 2)
+                }
+
+                OutlinedButton(onClick = onBack) { Text("Home") }
+            }
+        }
+
+        // 🔽 Sleek Compact Bottom Navigation HUD Card
         Surface(
             color = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
             shape = RoundedCornerShape(12.dp),
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp)
-                .align(Alignment.TopCenter)
+                .padding(12.dp)
+                .align(Alignment.BottomCenter)
         ) {
             Column(
                 modifier = Modifier.padding(12.dp),
                 verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                        OutlinedButton(onClick = onOpenDrawer) {
-                            Text("☰ Menu")
-                        }
-                        OutlinedButton(onClick = { triggerGpsUpdate() }) {
-                            Text("🎯 Locate Me")
-                        }
-                    }
-                    OutlinedButton(onClick = onBack) {
-                        Text("Home")
-                    }
-                }
-
-                Text(
-                    "Profile: ${truckProfile.profileName} (${truckProfile.formattedHeight} | ${truckProfile.weightLbs.toInt()} lbs)",
-                    style = MaterialTheme.typography.bodySmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-
                 val res = routeResult
                 if (res != null) {
-                    Text(
-                        res.warningMessage,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.primary,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        "Distance: ${String.format(java.util.Locale.US, "%.1f", res.distanceMiles)} miles | Est. Time: ${res.durationMins / 60}h ${res.durationMins % 60}m",
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.Bold
-                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            res.warningMessage,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            "⚡ $currentSpeedMph mph",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
 
-                    // 🔊 Turn-by-Turn Guidance HUD
-                    val currentSteps = res.navSteps
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            "Distance: ${String.format(Locale.US, "%.1f", res.distanceMiles)} miles",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            "ETA: ${res.durationMins / 60}h ${res.durationMins % 60}m",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+
+                    // 🔊 Turn-by-Turn Guidance HUD (only show if valid step instructions exist)
+                    val currentSteps = res.navSteps.filter { !it.instruction.contains("Proceed on truck-approved route", ignoreCase = true) }
                     if (currentSteps.isNotEmpty()) {
                         val activeStep = currentSteps.first()
 
@@ -299,45 +330,50 @@ fun TruckLvrMapScreen(
                         Surface(
                             color = MaterialTheme.colorScheme.primaryContainer,
                             shape = RoundedCornerShape(8.dp),
-                            modifier = Modifier.fillMaxWidth().padding(top = 4.dp)
+                            modifier = Modifier.fillMaxWidth().padding(top = 2.dp)
                         ) {
-                            Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                                        Text(activeStep.maneuverIcon, style = MaterialTheme.typography.titleMedium)
-                                        Text(activeStep.instruction, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimaryContainer)
-                                    }
-                                    TextButton(
-                                        onClick = {
-                                            isVoiceMuted = !isVoiceMuted
-                                            voiceGuidance.isMuted = isVoiceMuted
-                                        }
-                                    ) {
-                                        Text(if (isVoiceMuted) "🔇 Muted" else "🔊 Voice On")
+                            Row(
+                                modifier = Modifier.padding(8.dp).fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                                    Text(activeStep.maneuverIcon, style = MaterialTheme.typography.titleMedium)
+                                    Column {
+                                        Text(activeStep.instruction, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimaryContainer, maxLines = 1)
+                                        Text("In ${activeStep.distanceText}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onPrimaryContainer)
                                     }
                                 }
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween
+                                TextButton(
+                                    onClick = {
+                                        isVoiceMuted = !isVoiceMuted
+                                        voiceGuidance.isMuted = isVoiceMuted
+                                    }
                                 ) {
-                                    Text("In ${activeStep.distanceText}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onPrimaryContainer)
-                                    Text("⚡ GPS Speed: $currentSpeedMph mph", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                                    Text(if (isVoiceMuted) "🔇 Mute" else "🔊 Voice")
                                 }
                             }
                         }
                     }
-                }
-
-                Button(
-                    onClick = { showAddressDialog = true },
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondaryContainer, contentColor = MaterialTheme.colorScheme.onSecondaryContainer),
-                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp)
-                ) {
-                    Text(if (destinationAddressText.isNotBlank()) "📍 Destination: $destinationAddressText" else "🔍 Enter Destination Address")
+                } else {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            "Profile: ${truckProfile.profileName} (${truckProfile.formattedHeight} | ${truckProfile.weightLbs.toInt()} lbs)",
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            "⚡ $currentSpeedMph mph",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
                 }
             }
         }
