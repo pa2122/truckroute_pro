@@ -1,5 +1,6 @@
 package com.example.truckroutepro
 
+import android.content.Context
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -34,6 +35,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -86,6 +88,16 @@ fun TruckRouteProApp() {
     var showAddressDialog by remember { mutableStateOf(false) }
     var editingProfile by remember { mutableStateOf(activeProfile) }
 
+    val appPrefs = remember { context.getSharedPreferences("truck_app_settings", Context.MODE_PRIVATE) }
+    var hasCompletedSetup by remember { mutableStateOf(appPrefs.getBoolean("has_completed_setup", false)) }
+
+    LaunchedEffect(Unit) {
+        if (!hasCompletedSetup) {
+            editingProfile = activeProfile
+            showProfileEditor = true
+        }
+    }
+
     fun saveUpdatedProfile(updated: TruckProfile) {
         val index = profilesList.indexOfFirst { it.id == updated.id }
         val newProfiles = if (index >= 0) {
@@ -97,6 +109,8 @@ fun TruckRouteProApp() {
         activeProfileId = updated.id
         TruckProfileManager.saveProfiles(context, newProfiles)
         TruckProfileManager.setActiveProfileId(context, updated.id)
+        appPrefs.edit().putBoolean("has_completed_setup", true).apply()
+        hasCompletedSetup = true
     }
 
     var profileDropdownExpanded by remember { mutableStateOf(false) }
@@ -179,30 +193,67 @@ fun TruckRouteProApp() {
                     }
 
                     if (vehicleSectionExpanded) {
-                        NavigationDrawerItem(
-                            label = { Text("⚙️ Edit Profile (${activeProfile.profileName})") },
-                            selected = false,
-                            onClick = {
-                                editingProfile = activeProfile
-                                showProfileEditor = true
-                                scope.launch { drawerState.close() }
+                        ExposedDropdownMenuBox(
+                            expanded = profileDropdownExpanded,
+                            onExpandedChange = { profileDropdownExpanded = !profileDropdownExpanded }
+                        ) {
+                            OutlinedTextField(
+                                value = activeProfile.profileName,
+                                onValueChange = {},
+                                readOnly = true,
+                                label = { Text("Select Active Truck Setup") },
+                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = profileDropdownExpanded) },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .menuAnchor(type = MenuAnchorType.PrimaryNotEditable, enabled = true)
+                            )
+                            ExposedDropdownMenu(
+                                expanded = profileDropdownExpanded,
+                                onDismissRequest = { profileDropdownExpanded = false }
+                            ) {
+                                profilesList.forEach { p ->
+                                    DropdownMenuItem(
+                                        text = { Text("${p.profileName} (${p.formattedHeight} | ${p.weightLbs.toInt()}k lbs)") },
+                                        onClick = {
+                                            activeProfileId = p.id
+                                            TruckProfileManager.setActiveProfileId(context, p.id)
+                                            profileDropdownExpanded = false
+                                        }
+                                    )
+                                }
                             }
-                        )
+                        }
 
-                        NavigationDrawerItem(
-                            label = { Text("➕ Create New Truck Setup") },
-                            selected = false,
-                            onClick = {
-                                editingProfile = TruckProfile(id = UUID.randomUUID().toString(), profileName = "Custom Rig ${profilesList.size + 1}")
-                                showProfileEditor = true
-                                scope.launch { drawerState.close() }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            OutlinedButton(
+                                onClick = {
+                                    editingProfile = activeProfile
+                                    showProfileEditor = true
+                                    scope.launch { drawerState.close() }
+                                },
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text("⚙️ Edit")
                             }
-                        )
+                            Button(
+                                onClick = {
+                                    editingProfile = TruckProfile(id = UUID.randomUUID().toString(), profileName = "Custom Rig ${profilesList.size + 1}")
+                                    showProfileEditor = true
+                                    scope.launch { drawerState.close() }
+                                },
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text("➕ New Setup")
+                            }
+                        }
                     }
 
                     Spacer(modifier = Modifier.weight(1f))
                     HorizontalDivider()
-                    Text("Active: ${activeProfile.profileName} (${activeProfile.formattedHeight} | ${activeProfile.weightLbs.toInt()} lbs)", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                    Text("Active: ${activeProfile.profileName} (${activeProfile.formattedHeight} | ${activeProfile.weightLbs.toInt()} lbs | ${activeProfile.maxSpeedMph} MPH)", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
                 }
             }
         }

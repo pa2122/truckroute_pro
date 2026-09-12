@@ -17,6 +17,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
@@ -105,6 +107,7 @@ fun TruckLvrMapScreen(
 
     var truckLocation by remember { mutableStateOf(LatLng(39.8283, -98.5795)) }
     var orientationMode by remember { mutableStateOf("SMART_AUTO") }
+    var orientationDropdownExpanded by remember { mutableStateOf(false) }
     var truckHeading by remember { mutableFloatStateOf(0f) }
     var hasCenteredMap by remember { mutableStateOf(false) }
     var routeResult by remember { mutableStateOf<TruckRouteResult?>(null) }
@@ -273,23 +276,47 @@ fun TruckLvrMapScreen(
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                     OutlinedButton(onClick = onOpenDrawer) { Text("☰") }
                     OutlinedButton(onClick = { triggerGpsUpdate() }) { Text("🎯") }
-                    OutlinedButton(
-                        onClick = {
-                            orientationMode = when (orientationMode) {
-                                "SMART_AUTO" -> "NORTH_UP"
-                                "NORTH_UP" -> "HEADING_UP"
-                                else -> "SMART_AUTO"
+                    Box {
+                        OutlinedButton(onClick = { orientationDropdownExpanded = true }) {
+                            val label = when (orientationMode) {
+                                "NORTH_UP" -> "🧭 North"
+                                "HEADING_UP" -> "⬆️ Driving"
+                                else -> "🧠 Auto"
                             }
-                            val dist = routeResult?.distanceMiles ?: 999.0
-                            updateCameraOrientation(truckLocation, truckHeading, dist)
+                            Text(label)
                         }
-                    ) {
-                        val label = when (orientationMode) {
-                            "NORTH_UP" -> "🧭 North"
-                            "HEADING_UP" -> "⬆️ Driving"
-                            else -> "🧠 Auto"
+                        DropdownMenu(
+                            expanded = orientationDropdownExpanded,
+                            onDismissRequest = { orientationDropdownExpanded = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("🧠 Smart Auto (North > 20mi, Driving ≤ 20mi)") },
+                                onClick = {
+                                    orientationMode = "SMART_AUTO"
+                                    orientationDropdownExpanded = false
+                                    val dist = routeResult?.distanceMiles ?: 999.0
+                                    updateCameraOrientation(truckLocation, truckHeading, dist)
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("🧭 North-Up Always") },
+                                onClick = {
+                                    orientationMode = "NORTH_UP"
+                                    orientationDropdownExpanded = false
+                                    val dist = routeResult?.distanceMiles ?: 999.0
+                                    updateCameraOrientation(truckLocation, truckHeading, dist)
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("⬆️ Driving Direction Up Always") },
+                                onClick = {
+                                    orientationMode = "HEADING_UP"
+                                    orientationDropdownExpanded = false
+                                    val dist = routeResult?.distanceMiles ?: 999.0
+                                    updateCameraOrientation(truckLocation, truckHeading, dist)
+                                }
+                            )
                         }
-                        Text(label)
                     }
                 }
 
@@ -300,8 +327,6 @@ fun TruckLvrMapScreen(
                 ) {
                     Text(if (destinationAddressText.isNotBlank()) "📍 $destinationAddressText" else "🔍 Search Destination", maxLines = 2)
                 }
-
-                OutlinedButton(onClick = onBack) { Text("Home") }
             }
         }
 
@@ -436,13 +461,13 @@ fun TruckLvrMapScreen(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    "SPEED",
+                    "YOUR SPEED",
                     style = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.Black,
                     color = Color.Black
                 )
                 Text(
-                    "LIMIT",
+                    "MPH",
                     style = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.Black,
                     color = Color.Black
