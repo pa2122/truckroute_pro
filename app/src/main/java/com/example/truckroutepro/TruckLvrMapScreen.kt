@@ -378,15 +378,9 @@ fun TruckLvrMapScreen(
                 Button(
                     onClick = { showAddressDialog = true },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondaryContainer, contentColor = MaterialTheme.colorScheme.onSecondaryContainer),
-                    modifier = Modifier.weight(1f).padding(horizontal = 8.dp)
+                    modifier = Modifier.weight(1f).padding(start = 8.dp)
                 ) {
                     Text(if (destinationAddressText.isNotBlank()) "📍 $destinationAddressText" else "🔍 Search Destination", maxLines = 2)
-                }
-
-                OutlinedButton(
-                    onClick = { isSatelliteView = !isSatelliteView }
-                ) {
-                    Text(if (isSatelliteView) "🗺️ Map" else "🛰️ Sat")
                 }
             }
         }
@@ -573,6 +567,22 @@ fun TruckLvrMapScreen(
                 .align(Alignment.BottomEnd)
                 .padding(bottom = bottomHudHeightDp + 16.dp, end = 16.dp)
         ) {
+            // 🛰️ Satellite / Map Toggle Button
+            Surface(
+                color = if (isSatelliteView) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
+                shape = RoundedCornerShape(12.dp),
+                shadowElevation = 8.dp
+            ) {
+                OutlinedButton(
+                    onClick = { isSatelliteView = !isSatelliteView },
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        containerColor = if (isSatelliteView) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface
+                    )
+                ) {
+                    Text(if (isSatelliteView) "Map" else "Satellite")
+                }
+            }
+
             // 🎯 GPS Locate / Recenter Button
             Surface(
                 color = if (isUserPanningMap) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
