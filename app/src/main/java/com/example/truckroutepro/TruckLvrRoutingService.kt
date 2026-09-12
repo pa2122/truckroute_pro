@@ -44,13 +44,12 @@ object TruckLvrRoutingService {
                     val routes = jsonObj.getJSONArray("routes")
                     if (routes.length() > 0) {
                         val route = routes.getJSONObject(0)
-                        val overviewPolyline = route.getJSONObject("overview_polyline").getString("points")
-                        val points = decodePolyline(overviewPolyline)
 
                         val legs = route.getJSONArray("legs")
                         var totalMeters = 0.0
                         var totalSecs = 0.0
                         val stepsList = mutableListOf<TruckNavStep>()
+                        val detailedPolylinePoints = mutableListOf<LatLng>()
 
                         if (legs.length() > 0) {
                             val leg = legs.getJSONObject(0)
@@ -67,6 +66,11 @@ object TruckLvrRoutingService {
                                     val startLoc = s.getJSONObject("start_location")
                                     val latLng = LatLng(startLoc.getDouble("lat"), startLoc.getDouble("lng"))
 
+                                    if (s.has("polyline")) {
+                                        val stepPolyStr = s.getJSONObject("polyline").getString("points")
+                                        detailedPolylinePoints.addAll(decodePolyline(stepPolyStr))
+                                    }
+
                                     val maneuver = if (s.has("maneuver")) s.getString("maneuver") else ""
                                     val icon = when {
                                         maneuver.contains("right") -> "➡️"
@@ -79,6 +83,10 @@ object TruckLvrRoutingService {
                                 }
                             }
                         }
+
+                        val overviewPolyline = route.getJSONObject("overview_polyline").getString("points")
+                        val overviewPoints = decodePolyline(overviewPolyline)
+                        val points = if (detailedPolylinePoints.isNotEmpty()) detailedPolylinePoints else overviewPoints
 
                         val distanceMiles = totalMeters / 1609.34
                         val rawDurationMins = (totalSecs / 60.0).toInt()
