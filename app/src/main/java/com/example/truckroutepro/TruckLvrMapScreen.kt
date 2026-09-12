@@ -30,6 +30,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -38,7 +39,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
@@ -116,6 +119,11 @@ fun TruckLvrMapScreen(
     var routeResult by remember { mutableStateOf<TruckRouteResult?>(null) }
     var isUserPanningMap by remember { mutableStateOf(false) }
     var lastUserPanTimestamp by remember { mutableLongStateOf(0L) }
+    var isBottomHudExpanded by remember { mutableStateOf(false) }
+    var bottomHudHeightPx by remember { mutableIntStateOf(0) }
+
+    val density = LocalDensity.current
+    val bottomHudHeightDp = with(density) { bottomHudHeightPx.toDp() }
 
     val cameraPositionState = rememberCameraPositionState {
         position = CameraPosition.fromLatLngZoom(truckLocation, 12f)
@@ -307,7 +315,7 @@ fun TruckLvrMapScreen(
             }
         }
 
-        // 🔽 Sleek Compact Bottom Navigation HUD Card
+        // 🔽 Sleek Collapsible Bottom Navigation HUD Card
         Surface(
             color = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
             shape = RoundedCornerShape(12.dp),
@@ -315,6 +323,7 @@ fun TruckLvrMapScreen(
                 .fillMaxWidth()
                 .padding(12.dp)
                 .align(Alignment.BottomCenter)
+                .onSizeChanged { bottomHudHeightPx = it.height }
         ) {
             Column(
                 modifier = Modifier.padding(12.dp),
@@ -327,83 +336,63 @@ fun TruckLvrMapScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                "🛣️ ${String.format(Locale.US, "%.1f", res.distanceMiles)} mi",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            Text(
+                                "• ETA: ${res.durationMins / 60}h ${res.durationMins % 60}m",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+
+                        TextButton(onClick = { isBottomHudExpanded = !isBottomHudExpanded }) {
+                            Text(if (isBottomHudExpanded) "▲ Less" else "▼ Details")
+                        }
+                    }
+
+                    if (isBottomHudExpanded) {
                         Text(
                             res.warningMessage,
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.primary,
                             fontWeight = FontWeight.Bold
                         )
-                        Text(
-                            "⚡ $currentSpeedMph mph",
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                    }
 
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(
-                            "Distance: ${String.format(Locale.US, "%.1f", res.distanceMiles)} miles",
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            "ETA: ${res.durationMins / 60}h ${res.durationMins % 60}m",
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-
-                    val orientationModeText = when (orientationMode) {
-                        "NORTH_UP" -> "Orientation: 🧭 North-Up Always"
-                        "HEADING_UP" -> "Orientation: ⬆️ Driving Direction Up Always"
-                        else -> {
-                            if (res.distanceMiles <= 20.0) "Orientation: 🧠 Smart Auto (Driving Direction Up — <= 20mi to destination)"
-                            else "Orientation: 🧠 Smart Auto (North-Up — ${String.format(Locale.US, "%.1f", res.distanceMiles - 20.0)}mi until Driving Up)"
-                        }
-                    }
-                    Text(orientationModeText, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.secondary)
-
-                    // 🔊 Turn-by-Turn Guidance HUD (only show if valid step instructions exist)
-                    val currentSteps = res.navSteps.filter { !it.instruction.contains("Proceed on truck-approved route", ignoreCase = true) }
-                    if (currentSteps.isNotEmpty()) {
-                        val activeStep = currentSteps.first()
-
-                        LaunchedEffect(activeStep.instruction) {
-                            if (!isVoiceMuted) {
-                                val distanceVoice = if (activeStep.distanceText.isNotBlank()) "In ${activeStep.distanceText}, " else ""
-                                voiceGuidance.speakInstruction("$distanceVoice${activeStep.instruction}")
+                        val orientationModeText = when (orientationMode) {
+                            "NORTH_UP" -> "Orientation: 🧭 North-Up Always"
+                            "HEADING_UP" -> "Orientation: ⬆️ Driving Direction Up Always"
+                            else -> {
+                                if (res.distanceMiles <= 20.0) "Orientation: 🧠 Smart Auto (Driving Direction Up — <= 20mi to destination)"
+                                else "Orientation: 🧠 Smart Auto (North-Up — ${String.format(Locale.US, "%.1f", res.distanceMiles - 20.0)}mi until Driving Up)"
                             }
                         }
+                        Text(orientationModeText, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.secondary)
 
-                        Surface(
-                            color = MaterialTheme.colorScheme.primaryContainer,
-                            shape = RoundedCornerShape(8.dp),
-                            modifier = Modifier.fillMaxWidth().padding(top = 2.dp)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Row(
-                                modifier = Modifier.padding(8.dp).fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
+                            Text(
+                                "Truck Profile: ${truckProfile.profileName}",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold
+                            )
+                            TextButton(
+                                onClick = {
+                                    isVoiceMuted = !isVoiceMuted
+                                    voiceGuidance.isMuted = isVoiceMuted
+                                }
                             ) {
-                                Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                                    Text(activeStep.maneuverIcon, style = MaterialTheme.typography.titleMedium)
-                                    Column {
-                                        Text(activeStep.instruction, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimaryContainer, maxLines = 1)
-                                        Text("In ${activeStep.distanceText}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onPrimaryContainer)
-                                    }
-                                }
-                                TextButton(
-                                    onClick = {
-                                        isVoiceMuted = !isVoiceMuted
-                                        voiceGuidance.isMuted = isVoiceMuted
-                                    }
-                                ) {
-                                    Text(if (isVoiceMuted) "🔇 Mute" else "🔊 Voice")
-                                }
+                                Text(if (isVoiceMuted) "🔇 Voice Muted" else "🔊 Voice Active")
                             }
                         }
                     }
@@ -465,60 +454,63 @@ fun TruckLvrMapScreen(
             }
         }
 
-        // 🎯 GPS Locate / Recenter Button (Above Speed Sign, Bottom Right)
-        Surface(
-            color = if (isUserPanningMap) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
-            shape = RoundedCornerShape(12.dp),
-            shadowElevation = 8.dp,
+        // 🎈 Floating Controls Column (Recenter Button & Speed Sign Widget Floating Above Bottom HUD)
+        Column(
+            horizontalAlignment = Alignment.End,
+            verticalArrangement = Arrangement.spacedBy(10.dp),
             modifier = Modifier
                 .align(Alignment.BottomEnd)
-                .padding(bottom = 220.dp, end = 16.dp)
+                .padding(bottom = bottomHudHeightDp + 16.dp, end = 16.dp)
         ) {
-            OutlinedButton(
-                onClick = {
-                    isUserPanningMap = false
-                    triggerGpsUpdate()
-                },
-                colors = ButtonDefaults.outlinedButtonColors(
-                    containerColor = if (isUserPanningMap) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface
-                )
+            // 🎯 GPS Locate / Recenter Button
+            Surface(
+                color = if (isUserPanningMap) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
+                shape = RoundedCornerShape(12.dp),
+                shadowElevation = 8.dp
             ) {
-                Text(if (isUserPanningMap) "🎯 Recenter" else "🎯")
+                OutlinedButton(
+                    onClick = {
+                        isUserPanningMap = false
+                        triggerGpsUpdate()
+                    },
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        containerColor = if (isUserPanningMap) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface
+                    )
+                ) {
+                    Text(if (isUserPanningMap) "🎯 Recenter" else "🎯")
+                }
             }
-        }
 
-        // 🛑 US Highway Speed Sign Widget (Bottom Right Corner)
-        Surface(
-            color = Color.White,
-            shape = RoundedCornerShape(6.dp),
-            shadowElevation = 8.dp,
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(bottom = 120.dp, end = 16.dp)
-                .border(2.dp, Color.Black, RoundedCornerShape(6.dp))
-        ) {
-            Column(
-                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+            // 🛑 US Highway Speed Sign Widget
+            Surface(
+                color = Color.White,
+                shape = RoundedCornerShape(6.dp),
+                shadowElevation = 8.dp,
+                modifier = Modifier.border(2.dp, Color.Black, RoundedCornerShape(6.dp))
             ) {
-                Text(
-                    "YOUR SPEED",
-                    style = MaterialTheme.typography.labelSmall,
-                    fontWeight = FontWeight.Black,
-                    color = Color.Black
-                )
-                Text(
-                    "MPH",
-                    style = MaterialTheme.typography.labelSmall,
-                    fontWeight = FontWeight.Black,
-                    color = Color.Black
-                )
-                Text(
-                    "$currentSpeedMph",
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = Color.Black
-                )
+                Column(
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        "YOUR SPEED",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Black,
+                        color = Color.Black
+                    )
+                    Text(
+                        "MPH",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Black,
+                        color = Color.Black
+                    )
+                    Text(
+                        "$currentSpeedMph",
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = Color.Black
+                    )
+                }
             }
         }
     }
