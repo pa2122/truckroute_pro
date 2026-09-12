@@ -55,6 +55,7 @@ import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.JointType
 import com.google.android.gms.maps.model.LatLng
+import com.google.android.gms.maps.model.LatLngBounds
 import com.google.android.gms.maps.model.RoundCap
 import com.google.maps.android.compose.CameraMoveStartedReason
 import com.google.maps.android.compose.GoogleMap
@@ -242,7 +243,27 @@ fun TruckLvrMapScreen(
     var routePolyline by remember { mutableStateOf<List<LatLng>>(emptyList()) }
     var showAddressDialog by remember { mutableStateOf(false) }
 
-    fun calculateRoute(destLatLng: LatLng, destText: String, customOrigin: LatLng? = null) {
+    fun fitRouteInCamera(points: List<LatLng>, paddingPx: Int = 120) {
+        if (points.isEmpty()) return
+        val builder = LatLngBounds.builder()
+        for (p in points) {
+            builder.include(p)
+        }
+        val bounds = builder.build()
+        scope.launch {
+            try {
+                cameraPositionState.animate(CameraUpdateFactory.newLatLngBounds(bounds, paddingPx))
+            } catch (_: Exception) {}
+        }
+    }
+
+    fun calculateRoute(
+        destLatLng: LatLng,
+        destText: String,
+        customOrigin: LatLng? = null,
+        waypoints: List<LatLng> = emptyList(),
+        waypointAddresses: List<String> = emptyList()
+    ) {
         val startPoint = customOrigin ?: truckLocation
         destinationLatLng = destLatLng
         destinationAddressText = destText
@@ -252,11 +273,15 @@ fun TruckLvrMapScreen(
                 apiKey = "AIzaSyAcscUaSZ1EGCuTGb81kgLD4ul92DXpn5E",
                 origin = startPoint,
                 destination = destLatLng,
+                waypoints = waypoints,
+                waypointAddresses = waypointAddresses,
                 profile = truckProfile
             )
             routeResult = result
             routePolyline = result.polylinePoints
-            updateCameraOrientation(startPoint, truckHeading, result.distanceMiles)
+            isUserPanningMap = true
+            lastUserPanTimestamp = System.currentTimeMillis()
+            fitRouteInCamera(result.polylinePoints)
         }
     }
 
@@ -272,6 +297,18 @@ fun TruckLvrMapScreen(
                 title = "🚛 Truck Location (${truckProfile.profileName})",
                 snippet = "Height: ${truckProfile.formattedHeight} | Weight: ${truckProfile.weightLbs.toInt()} lbs"
             )
+
+            val currentRes = routeResult
+            if (currentRes != null && currentRes.waypoints.isNotEmpty()) {
+                currentRes.waypoints.forEachIndexed { index, wp ->
+                    val addr = currentRes.waypointAddresses.getOrNull(index) ?: "Stop ${index + 1}"
+                    Marker(
+                        state = remember(wp) { MarkerState(position = wp) },
+                        title = "📍 Stop ${index + 1}",
+                        snippet = addr
+                    )
+                }
+            }
 
             val dest = destinationLatLng
             if (dest != null) {
@@ -524,8 +561,8 @@ fun TruckLvrMapScreen(
         ManualAddressDialog(
             initialOrigin = "Current GPS Location",
             initialDestination = destinationAddressText,
-            onRouteCalculated = { originText, originLatLng, destText, destLatLng ->
-                calculateRoute(destLatLng, destText, originLatLng)
+            onMultiStopRouteCalculated = { originText, originLatLng, destText, destLatLng, waypoints, waypointAddresses ->
+                calculateRoute(destLatLng, destText, originLatLng, waypoints, waypointAddresses)
                 showAddressDialog = false
             },
             onDismiss = { showAddressDialog = false }
