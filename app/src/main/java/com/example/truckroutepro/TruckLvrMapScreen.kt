@@ -20,6 +20,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -61,6 +62,16 @@ fun TruckLvrMapScreen(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+
+    val voiceGuidance = remember { TruckVoiceGuidance(context) }
+    var isVoiceMuted by remember { mutableStateOf(false) }
+    var currentSpeedMph by remember { mutableStateOf(0) }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            voiceGuidance.shutdown()
+        }
+    }
 
     var hasLocationPermission by remember {
         mutableStateOf(
@@ -108,6 +119,7 @@ fun TruckLvrMapScreen(
                     if (loc != null) {
                         val realLocation = LatLng(loc.latitude, loc.longitude)
                         truckLocation = realLocation
+                        currentSpeedMph = (loc.speed * 2.23694f).toInt()
                         scope.launch {
                             try {
                                 cameraPositionState.animate(CameraUpdateFactory.newLatLngZoom(realLocation, 15f))
@@ -137,6 +149,7 @@ fun TruckLvrMapScreen(
                         val last = result.lastLocation ?: return
                         val updated = LatLng(last.latitude, last.longitude)
                         truckLocation = updated
+                        currentSpeedMph = (last.speed * 2.23694f).toInt()
                         if (!hasCenteredMap) {
                             hasCenteredMap = true
                             scope.launch {
@@ -271,6 +284,52 @@ fun TruckLvrMapScreen(
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Bold
                     )
+
+                    // 🔊 Turn-by-Turn Guidance HUD
+                    val currentSteps = res.navSteps
+                    if (currentSteps.isNotEmpty()) {
+                        val activeStep = currentSteps.first()
+
+                        LaunchedEffect(activeStep.instruction) {
+                            if (!isVoiceMuted) {
+                                voiceGuidance.speakInstruction("${activeStep.maneuverIcon} ${activeStep.instruction}")
+                            }
+                        }
+
+                        Surface(
+                            color = MaterialTheme.colorScheme.primaryContainer,
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.fillMaxWidth().padding(top = 4.dp)
+                        ) {
+                            Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                                        Text(activeStep.maneuverIcon, style = MaterialTheme.typography.titleMedium)
+                                        Text(activeStep.instruction, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                                    }
+                                    TextButton(
+                                        onClick = {
+                                            isVoiceMuted = !isVoiceMuted
+                                            voiceGuidance.isMuted = isVoiceMuted
+                                        }
+                                    ) {
+                                        Text(if (isVoiceMuted) "🔇 Muted" else "🔊 Voice On")
+                                    }
+                                }
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text("In ${activeStep.distanceText}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                                    Text("⚡ GPS Speed: $currentSpeedMph mph", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                                }
+                            }
+                        }
+                    }
                 }
 
                 Button(

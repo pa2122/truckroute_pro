@@ -20,7 +20,10 @@ object TruckLvrRoutingService {
                 polylinePoints = listOf(origin, destination),
                 distanceMiles = estimateDistanceMiles(origin, destination),
                 durationMins = estimateDurationMins(origin, destination),
-                warningMessage = "Map API key missing. Displaying direct path."
+                warningMessage = "Map API key missing. Displaying direct path.",
+                navSteps = listOf(
+                    TruckNavStep("Head toward destination on truck route", "Direct", "⬆️", origin)
+                )
             )
         }
 
@@ -47,10 +50,34 @@ object TruckLvrRoutingService {
                         val legs = route.getJSONArray("legs")
                         var totalMeters = 0.0
                         var totalSecs = 0.0
+                        val stepsList = mutableListOf<TruckNavStep>()
+
                         if (legs.length() > 0) {
                             val leg = legs.getJSONObject(0)
                             totalMeters = leg.getJSONObject("distance").getDouble("value")
                             totalSecs = leg.getJSONObject("duration").getDouble("value")
+
+                            if (leg.has("steps")) {
+                                val stepsJson = leg.getJSONArray("steps")
+                                for (i in 0 until stepsJson.length()) {
+                                    val s = stepsJson.getJSONObject(i)
+                                    val rawHtml = s.getString("html_instructions")
+                                    val cleanText = android.text.Html.fromHtml(rawHtml, android.text.Html.FROM_HTML_MODE_LEGACY).toString()
+                                    val distText = s.getJSONObject("distance").getString("text")
+                                    val startLoc = s.getJSONObject("start_location")
+                                    val latLng = LatLng(startLoc.getDouble("lat"), startLoc.getDouble("lng"))
+
+                                    val maneuver = if (s.has("maneuver")) s.getString("maneuver") else ""
+                                    val icon = when {
+                                        maneuver.contains("right") -> "➡️"
+                                        maneuver.contains("left") -> "⬅️"
+                                        maneuver.contains("u-turn") -> "🔄"
+                                        else -> "⬆️"
+                                    }
+
+                                    stepsList.add(TruckNavStep(instruction = cleanText, distanceText = distText, maneuverIcon = icon, startLatLng = latLng))
+                                }
+                            }
                         }
 
                         val distanceMiles = totalMeters / 1609.34
@@ -62,7 +89,8 @@ object TruckLvrRoutingService {
                             polylinePoints = points,
                             distanceMiles = distanceMiles,
                             durationMins = durationMins,
-                            warningMessage = warningMsg
+                            warningMessage = warningMsg,
+                            navSteps = stepsList
                         )
                     }
                 }
@@ -76,7 +104,10 @@ object TruckLvrRoutingService {
             polylinePoints = listOf(origin, destination),
             distanceMiles = estimateDistanceMiles(origin, destination),
             durationMins = estimateDurationMins(origin, destination),
-            warningMessage = "Offline Mode: Direct path rendered for ${profile.formattedHeight} truck."
+            warningMessage = "Offline Mode: Direct path rendered for ${profile.formattedHeight} truck.",
+            navSteps = listOf(
+                TruckNavStep("Proceed on truck-approved route to destination", "Direct", "⬆️", origin)
+            )
         )
     }
 
@@ -127,9 +158,17 @@ object TruckLvrRoutingService {
     }
 }
 
+data class TruckNavStep(
+    val instruction: String,
+    val distanceText: String,
+    val maneuverIcon: String,
+    val startLatLng: LatLng
+)
+
 data class TruckRouteResult(
     val polylinePoints: List<LatLng>,
     val distanceMiles: Double,
     val durationMins: Int,
-    val warningMessage: String
+    val warningMessage: String,
+    val navSteps: List<TruckNavStep> = emptyList()
 )
