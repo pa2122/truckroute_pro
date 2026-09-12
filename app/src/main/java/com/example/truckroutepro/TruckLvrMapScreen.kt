@@ -2,6 +2,7 @@ package com.example.truckroutepro
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.os.Looper
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -19,6 +20,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -32,7 +34,12 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import com.google.android.gms.location.Granularity
+import com.google.android.gms.location.LocationCallback
+import com.google.android.gms.location.LocationRequest
+import com.google.android.gms.location.LocationResult
 import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.Priority
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.maps.android.compose.GoogleMap
@@ -87,18 +94,45 @@ fun TruckLvrMapScreen(
 
     val fusedLocationClient = remember { LocationServices.getFusedLocationProviderClient(context) }
 
-    LaunchedEffect(hasLocationPermission) {
+    DisposableEffect(hasLocationPermission) {
         if (hasLocationPermission) {
             try {
-                fusedLocationClient.lastLocation.addOnSuccessListener { loc ->
-                    if (loc != null) {
-                        truckLocation = LatLng(loc.latitude, loc.longitude)
-                        cameraPositionState.position = CameraPosition.fromLatLngZoom(truckLocation, 14f)
+                fusedLocationClient.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, null)
+                    .addOnSuccessListener { loc ->
+                        if (loc != null) {
+                            val realLocation = LatLng(loc.latitude, loc.longitude)
+                            truckLocation = realLocation
+                            cameraPositionState.position = CameraPosition.fromLatLngZoom(realLocation, 14f)
+                        }
                     }
+
+                val locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 4000L)
+                    .setMinUpdateIntervalMillis(2000L)
+                    .setGranularity(Granularity.GRANULARITY_FINE)
+                    .build()
+
+                val locationCallback = object : LocationCallback() {
+                    override fun onLocationResult(result: LocationResult) {
+                        val last = result.lastLocation ?: return
+                        val updated = LatLng(last.latitude, last.longitude)
+                        if (truckLocation.latitude == 39.8283 && truckLocation.longitude == -98.5795) {
+                            cameraPositionState.position = CameraPosition.fromLatLngZoom(updated, 14f)
+                        }
+                        truckLocation = updated
+                    }
+                }
+
+                fusedLocationClient.requestLocationUpdates(locationRequest, locationCallback, Looper.getMainLooper())
+
+                onDispose {
+                    fusedLocationClient.removeLocationUpdates(locationCallback)
                 }
             } catch (e: SecurityException) {
                 e.printStackTrace()
+                onDispose { }
             }
+        } else {
+            onDispose { }
         }
     }
 
