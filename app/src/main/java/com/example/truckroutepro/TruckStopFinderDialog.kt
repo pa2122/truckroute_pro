@@ -3,6 +3,7 @@ package com.example.truckroutepro
 import android.location.Location
 import android.util.Log
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -14,9 +15,10 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -53,13 +55,15 @@ fun TruckStopFinderDialog(
     totalDistanceMiles: Double,
     preloadedStops: List<TruckStopOption> = emptyList(),
     onTruckStopAdded: (stopLatLng: LatLng, stopAddressText: String) -> Unit,
+    onShowLocation: (LatLng) -> Unit,
     onDismiss: () -> Unit
 ) {
     val scope = rememberCoroutineScope()
-    var customMilesInput by remember { mutableStateOf("") }
     var isSearching by remember { mutableStateOf(false) }
     var truckStopsList by remember { mutableStateOf<List<TruckStopOption>>(emptyList()) }
     var statusMessage by remember { mutableStateOf("") }
+    var expandedDistanceDropdown by remember { mutableStateOf(false) }
+    val distanceOptions = listOf(30, 50, 100, 150, 200)
 
     fun performAllTruckStopsSearch() {
         isSearching = true
@@ -110,7 +114,7 @@ fun TruckStopFinderDialog(
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    "Search all truck stops along your route or enter a target mileage (e.g. 50 mi) to find safe stops before reaching your limit.",
+                    "Search all truck stops along your route or choose a target distance below.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.secondary
                 )
@@ -121,46 +125,35 @@ fun TruckStopFinderDialog(
                 modifier = Modifier.verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Text(
-                    "Search by Distance or View All Along Route:",
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.Bold
-                )
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    OutlinedTextField(
-                        value = customMilesInput,
-                        onValueChange = { customMilesInput = it.filter { char -> char.isDigit() } },
-                        label = { Text("Search Distance (e.g. 50 mi)") },
-                        singleLine = true,
-                        modifier = Modifier.weight(1f)
-                    )
-
-                    Button(
-                        enabled = customMilesInput.isNotBlank() && !isSearching,
-                        onClick = {
-                            val miles = customMilesInput.toDoubleOrNull()
-                            if (miles != null) {
-                                performSpecificMileageSearch(miles)
-                            }
-                        }
-                    ) {
-                        Text("🔍 Near Distance")
-                    }
-                }
-
                 OutlinedButton(
-                    onClick = {
-                        customMilesInput = ""
-                        performAllTruckStopsSearch()
-                    },
+                    onClick = { performAllTruckStopsSearch() },
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text("🛣️ Show All Truck Stops Along Route")
+                }
+
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    OutlinedButton(
+                        onClick = { expandedDistanceDropdown = true },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("🔍 Search Near Distance (Preset ▼)")
+                    }
+
+                    DropdownMenu(
+                        expanded = expandedDistanceDropdown,
+                        onDismissRequest = { expandedDistanceDropdown = false }
+                    ) {
+                        distanceOptions.forEach { miles ->
+                            DropdownMenuItem(
+                                text = { Text("$miles Miles") },
+                                onClick = {
+                                    expandedDistanceDropdown = false
+                                    performSpecificMileageSearch(miles.toDouble())
+                                }
+                            )
+                        }
+                    }
                 }
 
                 if (statusMessage.isNotBlank()) {
@@ -180,7 +173,7 @@ fun TruckStopFinderDialog(
                     ) {
                         Column(
                             modifier = Modifier.padding(10.dp),
-                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -209,14 +202,29 @@ fun TruckStopFinderDialog(
                                 )
                             }
 
-                            Button(
-                                onClick = {
-                                    onTruckStopAdded(stop.location, "${stop.name} (${stop.address})")
-                                    onDismiss()
-                                },
-                                modifier = Modifier.align(Alignment.End)
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                Text("➕ Add Stop to Route")
+                                OutlinedButton(
+                                    onClick = {
+                                        onShowLocation(stop.location)
+                                        onDismiss()
+                                    },
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Text("📍 Show Location")
+                                }
+
+                                Button(
+                                    onClick = {
+                                        onTruckStopAdded(stop.location, "${stop.name} (${stop.address})")
+                                        onDismiss()
+                                    },
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Text("➕ Add Stop")
+                                }
                             }
                         }
                     }

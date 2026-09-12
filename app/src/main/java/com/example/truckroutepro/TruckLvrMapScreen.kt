@@ -56,6 +56,7 @@ import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.JointType
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.LatLngBounds
+import com.google.maps.android.compose.MapType
 import com.google.android.gms.maps.model.RoundCap
 import com.google.maps.android.compose.CameraMoveStartedReason
 import com.google.maps.android.compose.GoogleMap
@@ -127,6 +128,7 @@ fun TruckLvrMapScreen(
     var bottomHudHeightPx by remember { mutableIntStateOf(0) }
     var isNavigating by remember { mutableStateOf(false) }
     var showTruckStopFinder by remember { mutableStateOf(false) }
+    var isSatelliteView by remember { mutableStateOf(false) }
 
     val density = LocalDensity.current
     val bottomHudHeightDp = with(density) { bottomHudHeightPx.toDp() }
@@ -302,7 +304,10 @@ fun TruckLvrMapScreen(
         GoogleMap(
             modifier = Modifier.fillMaxSize(),
             cameraPositionState = cameraPositionState,
-            properties = MapProperties(isMyLocationEnabled = hasLocationPermission),
+            properties = MapProperties(
+                isMyLocationEnabled = hasLocationPermission,
+                mapType = if (isSatelliteView) MapType.SATELLITE else MapType.NORMAL
+            ),
             uiSettings = MapUiSettings(zoomControlsEnabled = true, myLocationButtonEnabled = true)
         ) {
             Marker(
@@ -373,9 +378,15 @@ fun TruckLvrMapScreen(
                 Button(
                     onClick = { showAddressDialog = true },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondaryContainer, contentColor = MaterialTheme.colorScheme.onSecondaryContainer),
-                    modifier = Modifier.weight(1f).padding(start = 8.dp)
+                    modifier = Modifier.weight(1f).padding(horizontal = 8.dp)
                 ) {
                     Text(if (destinationAddressText.isNotBlank()) "📍 $destinationAddressText" else "🔍 Search Destination", maxLines = 2)
+                }
+
+                OutlinedButton(
+                    onClick = { isSatelliteView = !isSatelliteView }
+                ) {
+                    Text(if (isSatelliteView) "🗺️ Map" else "🛰️ Sat")
                 }
             }
         }
@@ -650,6 +661,12 @@ fun TruckLvrMapScreen(
                     waypoints = existingWaypoints,
                     waypointAddresses = existingAddresses
                 )
+                showTruckStopFinder = false
+            },
+            onShowLocation = { stopLatLng ->
+                scope.launch {
+                    cameraPositionState.animate(CameraUpdateFactory.newLatLngZoom(stopLatLng, 15f))
+                }
                 showTruckStopFinder = false
             },
             onDismiss = { showTruckStopFinder = false }
