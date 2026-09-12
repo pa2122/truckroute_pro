@@ -25,6 +25,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -102,9 +103,34 @@ fun TruckLvrMapScreen(
     }
 
     var truckLocation by remember { mutableStateOf(LatLng(39.8283, -98.5795)) }
+    var orientationMode by remember { mutableStateOf("SMART_AUTO") }
+    var truckHeading by remember { mutableFloatStateOf(0f) }
     var hasCenteredMap by remember { mutableStateOf(false) }
+    var routeResult by remember { mutableStateOf<TruckRouteResult?>(null) }
+
     val cameraPositionState = rememberCameraPositionState {
         position = CameraPosition.fromLatLngZoom(truckLocation, 12f)
+    }
+
+    fun updateCameraOrientation(location: LatLng, heading: Float, distMiles: Double) {
+        val targetBearing = when (orientationMode) {
+            "NORTH_UP" -> 0f
+            "HEADING_UP" -> heading
+            else -> if (distMiles <= 20.0) heading else 0f
+        }
+        val targetTilt = if (targetBearing != 0f) 30f else 0f
+        val newCamPos = CameraPosition.builder()
+            .target(location)
+            .zoom(cameraPositionState.position.zoom.coerceAtLeast(12f))
+            .bearing(targetBearing)
+            .tilt(targetTilt)
+            .build()
+
+        scope.launch {
+            try {
+                cameraPositionState.animate(CameraUpdateFactory.newCameraPosition(newCamPos))
+            } catch (_: Exception) {}
+        }
     }
 
     val fusedLocationClient = remember { LocationServices.getFusedLocationProviderClient(context) }
@@ -121,11 +147,10 @@ fun TruckLvrMapScreen(
                         val realLocation = LatLng(loc.latitude, loc.longitude)
                         truckLocation = realLocation
                         currentSpeedMph = (loc.speed * 2.23694f).toInt()
-                        scope.launch {
-                            try {
-                                cameraPositionState.animate(CameraUpdateFactory.newLatLngZoom(realLocation, 15f))
-                            } catch (_: Exception) {}
-                        }
+                        val heading = if (loc.hasBearing()) loc.bearing else truckHeading
+                        truckHeading = heading
+                        val dist = routeResult?.distanceMiles ?: 999.0
+                        updateCameraOrientation(realLocation, heading, dist)
                     } else {
                         Toast.makeText(context, "Acquiring satellite GPS lock...", Toast.LENGTH_SHORT).show()
                     }
@@ -151,14 +176,14 @@ fun TruckLvrMapScreen(
                         val updated = LatLng(last.latitude, last.longitude)
                         truckLocation = updated
                         currentSpeedMph = (last.speed * 2.23694f).toInt()
+                        val heading = if (last.hasBearing()) last.bearing else truckHeading
+                        truckHeading = heading
+                        val dist = routeResult?.distanceMiles ?: 999.0
+
                         if (!hasCenteredMap) {
                             hasCenteredMap = true
-                            scope.launch {
-                                try {
-                                    cameraPositionState.animate(CameraUpdateFactory.newLatLngZoom(updated, 15f))
-                                } catch (_: Exception) {}
-                            }
                         }
+                        updateCameraOrientation(updated, heading, dist)
                     }
                 }
 
@@ -179,18 +204,12 @@ fun TruckLvrMapScreen(
     var destinationLatLng by remember { mutableStateOf<LatLng?>(null) }
     var destinationAddressText by remember { mutableStateOf("") }
     var routePolyline by remember { mutableStateOf<List<LatLng>>(emptyList()) }
-    var routeResult by remember { mutableStateOf<TruckRouteResult?>(null) }
     var showAddressDialog by remember { mutableStateOf(false) }
 
     fun calculateRoute(destLatLng: LatLng, destText: String, customOrigin: LatLng? = null) {
         val startPoint = customOrigin ?: truckLocation
         destinationLatLng = destLatLng
         destinationAddressText = destText
-        scope.launch {
-            try {
-                cameraPositionState.animate(CameraUpdateFactory.newLatLngZoom(destLatLng, 12f))
-            } catch (_: Exception) {}
-        }
 
         scope.launch {
             val result = TruckLvrRoutingService.computeTruckRoute(
@@ -201,6 +220,7 @@ fun TruckLvrMapScreen(
             )
             routeResult = result
             routePolyline = result.polylinePoints
+            updateCameraOrientation(startPoint, truckHeading, result.distanceMiles)
         }
     }
 
@@ -252,6 +272,24 @@ fun TruckLvrMapScreen(
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                     OutlinedButton(onClick = onOpenDrawer) { Text("☰") }
                     OutlinedButton(onClick = { triggerGpsUpdate() }) { Text("🎯") }
+                    OutlinedButton(
+                        onClick = {
+                            orientationMode = when (orientationMode) {
+                                "SMART_AUTO" -> "NORTH_UP"
+                                "NORTH_UP" -> "HEADING_UP"
+                                else -> "SMART_AUTO"
+                            }
+                            val dist = routeResult?.distanceMiles ?: 999.0
+                            updateCameraOrientation(truckLocation, truckHeading, dist)
+                        }
+                    ) {
+                        val label = when (orientationMode) {
+                            "NORTH_UP" -> "🧭 North"
+                            "HEADING_UP" -> "⬆️ Driving"
+                            else -> "🧠 Auto"
+                        }
+                        Text(label)
+                    }
                 }
 
                 Button(
@@ -315,6 +353,16 @@ fun TruckLvrMapScreen(
                             fontWeight = FontWeight.Bold
                         )
                     }
+
+                    val orientationModeText = when (orientationMode) {
+                        "NORTH_UP" -> "Orientation: 🧭 North-Up Always"
+                        "HEADING_UP" -> "Orientation: ⬆️ Driving Direction Up Always"
+                        else -> {
+                            if (res.distanceMiles <= 20.0) "Orientation: 🧠 Smart Auto (Driving Direction Up — <= 20mi to destination)"
+                            else "Orientation: 🧠 Smart Auto (North-Up — ${String.format(Locale.US, "%.1f", res.distanceMiles - 20.0)}mi until Driving Up)"
+                        }
+                    }
+                    Text(orientationModeText, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.secondary)
 
                     // 🔊 Turn-by-Turn Guidance HUD (only show if valid step instructions exist)
                     val currentSteps = res.navSteps.filter { !it.instruction.contains("Proceed on truck-approved route", ignoreCase = true) }
