@@ -129,6 +129,7 @@ fun TruckLvrMapScreen(
     var isNavigating by remember { mutableStateOf(false) }
     var showTruckStopFinder by remember { mutableStateOf(false) }
     var isSatelliteView by remember { mutableStateOf(false) }
+    var selectedStopLocation by remember { mutableStateOf<LatLng?>(null) }
 
     val density = LocalDensity.current
     val bottomHudHeightDp = with(density) { bottomHudHeightPx.toDp() }
@@ -195,8 +196,8 @@ fun TruckLvrMapScreen(
         }
     }
 
-    LaunchedEffect(isUserPanningMap, lastUserPanTimestamp) {
-        if (isUserPanningMap) {
+    LaunchedEffect(isNavigating, isUserPanningMap, lastUserPanTimestamp) {
+        if (isNavigating && isUserPanningMap) {
             delay(30_000L)
             isUserPanningMap = false
             triggerGpsUpdate()
@@ -306,7 +307,7 @@ fun TruckLvrMapScreen(
             cameraPositionState = cameraPositionState,
             properties = MapProperties(
                 isMyLocationEnabled = hasLocationPermission,
-                mapType = if (isSatelliteView) MapType.SATELLITE else MapType.NORMAL
+                mapType = if (isSatelliteView) MapType.HYBRID else MapType.NORMAL
             ),
             uiSettings = MapUiSettings(zoomControlsEnabled = true, myLocationButtonEnabled = true)
         ) {
@@ -334,6 +335,15 @@ fun TruckLvrMapScreen(
                     state = remember(dest) { MarkerState(position = dest) },
                     title = "📍 Destination",
                     snippet = destinationAddressText
+                )
+            }
+
+            val selStop = selectedStopLocation
+            if (selStop != null) {
+                Marker(
+                    state = remember(selStop) { MarkerState(position = selStop) },
+                    title = "📍 Selected Stop Location",
+                    snippet = "Tapped from Add Stop dialog"
                 )
             }
 
@@ -674,6 +684,7 @@ fun TruckLvrMapScreen(
                 showTruckStopFinder = false
             },
             onShowLocation = { stopLatLng ->
+                selectedStopLocation = stopLatLng
                 scope.launch {
                     cameraPositionState.animate(CameraUpdateFactory.newLatLngZoom(stopLatLng, 15f))
                 }
