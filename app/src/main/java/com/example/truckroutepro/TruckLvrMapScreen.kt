@@ -40,6 +40,7 @@ import com.google.android.gms.location.LocationRequest
 import com.google.android.gms.location.LocationResult
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
+import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.maps.android.compose.GoogleMap
@@ -88,6 +89,7 @@ fun TruckLvrMapScreen(
     }
 
     var truckLocation by remember { mutableStateOf(LatLng(39.8283, -98.5795)) }
+    var hasCenteredMap by remember { mutableStateOf(false) }
     val cameraPositionState = rememberCameraPositionState {
         position = CameraPosition.fromLatLngZoom(truckLocation, 12f)
     }
@@ -102,12 +104,19 @@ fun TruckLvrMapScreen(
                         if (loc != null) {
                             val realLocation = LatLng(loc.latitude, loc.longitude)
                             truckLocation = realLocation
-                            cameraPositionState.position = CameraPosition.fromLatLngZoom(realLocation, 14f)
+                            if (!hasCenteredMap) {
+                                hasCenteredMap = true
+                                scope.launch {
+                                    try {
+                                        cameraPositionState.animate(CameraUpdateFactory.newLatLngZoom(realLocation, 14f))
+                                    } catch (_: Exception) {}
+                                }
+                            }
                         }
                     }
 
-                val locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 4000L)
-                    .setMinUpdateIntervalMillis(2000L)
+                val locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 3000L)
+                    .setMinUpdateIntervalMillis(1500L)
                     .setGranularity(Granularity.GRANULARITY_FINE)
                     .build()
 
@@ -115,10 +124,15 @@ fun TruckLvrMapScreen(
                     override fun onLocationResult(result: LocationResult) {
                         val last = result.lastLocation ?: return
                         val updated = LatLng(last.latitude, last.longitude)
-                        if (truckLocation.latitude == 39.8283 && truckLocation.longitude == -98.5795) {
-                            cameraPositionState.position = CameraPosition.fromLatLngZoom(updated, 14f)
-                        }
                         truckLocation = updated
+                        if (!hasCenteredMap) {
+                            hasCenteredMap = true
+                            scope.launch {
+                                try {
+                                    cameraPositionState.animate(CameraUpdateFactory.newLatLngZoom(updated, 14f))
+                                } catch (_: Exception) {}
+                            }
+                        }
                     }
                 }
 
@@ -146,7 +160,11 @@ fun TruckLvrMapScreen(
         val startPoint = customOrigin ?: truckLocation
         destinationLatLng = destLatLng
         destinationAddressText = destText
-        cameraPositionState.position = CameraPosition.fromLatLngZoom(destLatLng, 12f)
+        scope.launch {
+            try {
+                cameraPositionState.animate(CameraUpdateFactory.newLatLngZoom(destLatLng, 12f))
+            } catch (_: Exception) {}
+        }
 
         scope.launch {
             val result = TruckLvrRoutingService.computeTruckRoute(
