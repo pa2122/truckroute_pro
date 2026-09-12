@@ -36,6 +36,7 @@ import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
+import java.net.URLEncoder
 import java.util.Locale
 
 data class TruckStopOption(
@@ -232,12 +233,12 @@ private suspend fun searchAllTruckStopsAlongRoute(
     if (routePolyline.isEmpty() || apiKey.isBlank()) return@withContext emptyList()
 
     val sampleMilesList = mutableListOf<Double>()
-    var currentMile = 20.0
+    var currentMile = 10.0
     while (currentMile < totalDistanceMiles) {
         sampleMilesList.add(currentMile)
-        currentMile += 35.0
+        currentMile += 25.0
     }
-    if (sampleMilesList.isEmpty()) sampleMilesList.add(totalDistanceMiles / 2.0)
+    if (sampleMilesList.isEmpty()) sampleMilesList.add((totalDistanceMiles / 2.0).coerceAtLeast(1.0))
 
     val allFound = mutableListOf<TruckStopOption>()
     val seenNames = mutableSetOf<String>()
@@ -274,10 +275,11 @@ private fun queryTruckStopsNearLocation(
     try {
         val lat = location.latitude
         val lng = location.longitude
-        val urlStr = "https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=$lat,$lng&radius=30000&keyword=truck+stop&key=$apiKey"
+        val encodedQuery = URLEncoder.encode("truck stop OR travel center OR rest area", "UTF-8")
+        val urlStr = "https://maps.googleapis.com/maps/api/place/textsearch/json?query=$encodedQuery&location=$lat,$lng&radius=40000&key=$apiKey"
         val conn = URL(urlStr).openConnection() as HttpURLConnection
-        conn.connectTimeout = 6000
-        conn.readTimeout = 6000
+        conn.connectTimeout = 8000
+        conn.readTimeout = 8000
 
         if (conn.responseCode == 200) {
             val jsonText = conn.inputStream.bufferedReader().use { it.readText() }
@@ -291,11 +293,11 @@ private fun queryTruckStopsNearLocation(
                 for (i in 0 until results.length()) {
                     val r = results.getJSONObject(i)
                     val name = r.optString("name", "Truck Stop")
-                    val address = r.optString("vicinity", "")
+                    val address = r.optString("formatted_address", r.optString("vicinity", ""))
                     val locObj = r.getJSONObject("geometry").getJSONObject("location")
                     val stopLatLng = LatLng(locObj.getDouble("lat"), locObj.getDouble("lng"))
 
-                    val approxMile = baseMile + (i * 1.5 - 3.0)
+                    val approxMile = baseMile + (i * 0.8 - 2.0)
 
                     list.add(
                         TruckStopOption(
