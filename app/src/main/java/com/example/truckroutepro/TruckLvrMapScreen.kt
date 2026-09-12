@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -29,6 +30,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -49,6 +51,7 @@ import com.google.android.gms.location.Priority
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
+import com.google.maps.android.compose.CameraMoveStartedReason
 import com.google.maps.android.compose.GoogleMap
 import com.google.maps.android.compose.MapProperties
 import com.google.maps.android.compose.MapUiSettings
@@ -56,6 +59,7 @@ import com.google.maps.android.compose.Marker
 import com.google.maps.android.compose.MarkerState
 import com.google.maps.android.compose.Polyline
 import com.google.maps.android.compose.rememberCameraPositionState
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.Locale
 
@@ -110,12 +114,18 @@ fun TruckLvrMapScreen(
     var truckHeading by remember { mutableFloatStateOf(0f) }
     var hasCenteredMap by remember { mutableStateOf(false) }
     var routeResult by remember { mutableStateOf<TruckRouteResult?>(null) }
+    var isUserPanningMap by remember { mutableStateOf(false) }
+    var lastUserPanTimestamp by remember { mutableLongStateOf(0L) }
 
     val cameraPositionState = rememberCameraPositionState {
         position = CameraPosition.fromLatLngZoom(truckLocation, 12f)
     }
 
-    fun updateCameraOrientation(location: LatLng, heading: Float, distMiles: Double) {
+    val fusedLocationClient = remember { LocationServices.getFusedLocationProviderClient(context) }
+
+    fun updateCameraOrientation(location: LatLng, heading: Float, distMiles: Double, force: Boolean = false) {
+        if (isUserPanningMap && !force) return
+
         val targetBearing = when (orientationMode) {
             "NORTH_UP" -> 0f
             "HEADING_UP" -> heading
@@ -136,8 +146,6 @@ fun TruckLvrMapScreen(
         }
     }
 
-    val fusedLocationClient = remember { LocationServices.getFusedLocationProviderClient(context) }
-
     fun triggerGpsUpdate() {
         if (!hasLocationPermission) {
             Toast.makeText(context, "Location permission required", Toast.LENGTH_SHORT).show()
@@ -153,13 +161,28 @@ fun TruckLvrMapScreen(
                         val heading = if (loc.hasBearing()) loc.bearing else truckHeading
                         truckHeading = heading
                         val dist = routeResult?.distanceMiles ?: 999.0
-                        updateCameraOrientation(realLocation, heading, dist)
+                        updateCameraOrientation(realLocation, heading, dist, force = true)
                     } else {
                         Toast.makeText(context, "Acquiring satellite GPS lock...", Toast.LENGTH_SHORT).show()
                     }
                 }
         } catch (e: SecurityException) {
             e.printStackTrace()
+        }
+    }
+
+    LaunchedEffect(cameraPositionState.isMoving) {
+        if (cameraPositionState.isMoving && cameraPositionState.cameraMoveStartedReason == CameraMoveStartedReason.GESTURE) {
+            isUserPanningMap = true
+            lastUserPanTimestamp = System.currentTimeMillis()
+        }
+    }
+
+    LaunchedEffect(isUserPanningMap, lastUserPanTimestamp) {
+        if (isUserPanningMap) {
+            delay(30_000L)
+            isUserPanningMap = false
+            triggerGpsUpdate()
         }
     }
 
@@ -400,20 +423,66 @@ fun TruckLvrMapScreen(
             }
         }
 
-        // 🎯 GPS Locate Button (Above Speed Sign, Bottom Right)
+        // ↖️ Next Turn Guidance Box (Upper-Left Corner Below Top Bar)
+        val turnRes = routeResult
+        if (turnRes != null) {
+            val turnSteps = turnRes.navSteps.filter { !it.instruction.contains("Proceed on truck-approved route", ignoreCase = true) }
+            if (turnSteps.isNotEmpty()) {
+                val nextTurnStep = turnSteps.first()
+                Surface(
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                    shape = RoundedCornerShape(12.dp),
+                    shadowElevation = 8.dp,
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .padding(top = 80.dp, start = 16.dp)
+                        .widthIn(max = 240.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(nextTurnStep.maneuverIcon, style = MaterialTheme.typography.headlineMedium)
+                        Column {
+                            Text(
+                                "In ${nextTurnStep.distanceText}",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                            Text(
+                                nextTurnStep.instruction,
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                maxLines = 2
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        // 🎯 GPS Locate / Recenter Button (Above Speed Sign, Bottom Right)
         Surface(
-            color = MaterialTheme.colorScheme.surface,
+            color = if (isUserPanningMap) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
             shape = RoundedCornerShape(12.dp),
-            shadowElevation = 6.dp,
+            shadowElevation = 8.dp,
             modifier = Modifier
                 .align(Alignment.BottomEnd)
-                .padding(bottom = 200.dp, end = 16.dp)
+                .padding(bottom = 220.dp, end = 16.dp)
         ) {
             OutlinedButton(
-                onClick = { triggerGpsUpdate() },
-                colors = ButtonDefaults.outlinedButtonColors(containerColor = MaterialTheme.colorScheme.surface)
+                onClick = {
+                    isUserPanningMap = false
+                    triggerGpsUpdate()
+                },
+                colors = ButtonDefaults.outlinedButtonColors(
+                    containerColor = if (isUserPanningMap) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface
+                )
             ) {
-                Text("🎯 Locate")
+                Text(if (isUserPanningMap) "🎯 Recenter" else "🎯")
             }
         }
 
