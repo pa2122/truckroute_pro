@@ -42,7 +42,7 @@
         android:theme="@android:style/Theme.Material.NoActionBar" >
         <meta-data
             android:name="com.google.android.geo.API_KEY"
-            android:value="" />
+            android:value="AIzaSyAcscUaSZ1EGCuTGb81kgLD4ul92DXpn5E" />
 
         <activity
             android:name="com.example.truckroutepro.MainActivity"
