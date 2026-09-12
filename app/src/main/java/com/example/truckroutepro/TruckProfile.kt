@@ -1,6 +1,10 @@
 package com.example.truckroutepro
 
+import java.util.UUID
+
 data class TruckProfile(
+    val id: String = UUID.randomUUID().toString(),
+    val profileName: String = "Standard Semi",
     val heightFeet: Int = 13,
     val heightInches: Int = 6,
     val weightLbs: Double = 80000.0,

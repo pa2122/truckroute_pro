@@ -38,6 +38,7 @@ fun TruckProfileEditorDialog(
     onSave: (TruckProfile) -> Unit,
     onDismiss: () -> Unit
 ) {
+    var profileNameStr by remember { mutableStateOf(initialProfile.profileName) }
     var feetStr by remember { mutableStateOf(initialProfile.heightFeet.toString()) }
     var inchesStr by remember { mutableStateOf(initialProfile.heightInches.toString()) }
     var weightStr by remember { mutableStateOf(initialProfile.weightLbs.toInt().toString()) }
@@ -64,7 +65,7 @@ fun TruckProfileEditorDialog(
         onDismissRequest = onDismiss,
         title = {
             Text(
-                "⚙️ Edit Truck Profile Specifications",
+                "⚙️ Edit Truck Profile",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold
             )
@@ -72,6 +73,16 @@ fun TruckProfileEditorDialog(
         text = {
             Box(modifier = Modifier.heightIn(max = 450.dp)) {
                 LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    item {
+                        OutlinedTextField(
+                            value = profileNameStr,
+                            onValueChange = { profileNameStr = it },
+                            label = { Text("Profile Name") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+
                     item {
                         Text("Truck Height (Feet & Inches):", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
                         Row(
@@ -207,7 +218,8 @@ fun TruckProfileEditorDialog(
                     val parsedWidth = widthStr.toDoubleOrNull() ?: 102.0
                     val parsedLength = if (selectedTrailerType.contains("48")) 48.0 else 53.0
 
-                    val updatedProfile = TruckProfile(
+                    val updatedProfile = initialProfile.copy(
+                        profileName = profileNameStr.ifBlank { "Custom Truck" },
                         heightFeet = parsedFeet,
                         heightInches = parsedInches,
                         weightLbs = parsedWeight,

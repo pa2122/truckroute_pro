@@ -1,6 +1,5 @@
 package com.example.truckroutepro
 
-import android.content.Context
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -16,8 +15,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -32,6 +37,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import java.util.UUID
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -50,47 +56,42 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TruckRouteProApp() {
     val context = LocalContext.current
-    val prefs = remember { context.getSharedPreferences("truck_profile_prefs", Context.MODE_PRIVATE) }
+    var profilesList by remember { mutableStateOf(TruckProfileManager.loadProfiles(context)) }
+    var activeProfileId by remember {
+        mutableStateOf(TruckProfileManager.getActiveProfileId(context, profilesList.firstOrNull()?.id ?: "default_semi"))
+    }
 
-    var truckProfile by remember {
-        mutableStateOf(
-            TruckProfile(
-                heightFeet = prefs.getInt("height_feet", 13),
-                heightInches = prefs.getInt("height_inches", 6),
-                weightLbs = prefs.getFloat("weight_lbs", 80000f).toDouble(),
-                widthInches = prefs.getFloat("width_inches", 102f).toDouble(),
-                lengthFeet = prefs.getFloat("length_feet", 53f).toDouble(),
-                trailerType = prefs.getString("trailer_type", "53 ft Dry Van / Reefer") ?: "53 ft Dry Van / Reefer",
-                axleCount = prefs.getInt("axle_count", 5),
-                isHazmat = prefs.getBoolean("is_hazmat", false)
-            )
-        )
+    val activeProfile = remember(profilesList, activeProfileId) {
+        profilesList.find { it.id == activeProfileId } ?: profilesList.firstOrNull() ?: TruckProfile()
     }
 
     var currentScreen by remember { mutableStateOf("home") }
     var showProfileEditor by remember { mutableStateOf(false) }
+    var editingProfile by remember { mutableStateOf(activeProfile) }
 
-    fun saveProfile(newProfile: TruckProfile) {
-        truckProfile = newProfile
-        prefs.edit()
-            .putInt("height_feet", newProfile.heightFeet)
-            .putInt("height_inches", newProfile.heightInches)
-            .putFloat("weight_lbs", newProfile.weightLbs.toFloat())
-            .putFloat("width_inches", newProfile.widthInches.toFloat())
-            .putFloat("length_feet", newProfile.lengthFeet.toFloat())
-            .putString("trailer_type", newProfile.trailerType)
-            .putInt("axle_count", newProfile.axleCount)
-            .putBoolean("is_hazmat", newProfile.isHazmat)
-            .apply()
+    fun saveUpdatedProfile(updated: TruckProfile) {
+        val index = profilesList.indexOfFirst { it.id == updated.id }
+        val newProfiles = if (index >= 0) {
+            profilesList.toMutableList().apply { set(index, updated) }
+        } else {
+            profilesList + updated
+        }
+        profilesList = newProfiles
+        activeProfileId = updated.id
+        TruckProfileManager.saveProfiles(context, newProfiles)
+        TruckProfileManager.setActiveProfileId(context, updated.id)
     }
+
+    var profileDropdownExpanded by remember { mutableStateOf(false) }
 
     when (currentScreen) {
         "map" -> {
             TruckLvrMapScreen(
-                truckProfile = truckProfile,
+                truckProfile = activeProfile,
                 onBack = { currentScreen = "home" }
             )
         }
@@ -117,29 +118,79 @@ fun TruckRouteProApp() {
                         textAlign = TextAlign.Center
                     )
 
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(4.dp))
 
+                    // 🚛 Profile Switcher Card
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
                     ) {
-                        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
+                        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Text("🚛 Active Vehicle Profile", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+
+                            ExposedDropdownMenuBox(
+                                expanded = profileDropdownExpanded,
+                                onExpandedChange = { profileDropdownExpanded = !profileDropdownExpanded }
                             ) {
-                                Text("🚛 Vehicle Profile", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                                OutlinedButton(onClick = { showProfileEditor = true }) {
-                                    Text("⚙️ Edit")
+                                OutlinedTextField(
+                                    value = activeProfile.profileName,
+                                    onValueChange = {},
+                                    readOnly = true,
+                                    label = { Text("Select Truck Setup") },
+                                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = profileDropdownExpanded) },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .menuAnchor(type = MenuAnchorType.PrimaryNotEditable, enabled = true)
+                                )
+                                ExposedDropdownMenu(
+                                    expanded = profileDropdownExpanded,
+                                    onDismissRequest = { profileDropdownExpanded = false }
+                                ) {
+                                    profilesList.forEach { p ->
+                                        DropdownMenuItem(
+                                            text = { Text("${p.profileName} (${p.formattedHeight} | ${p.weightLbs.toInt()}k lbs)") },
+                                            onClick = {
+                                                activeProfileId = p.id
+                                                TruckProfileManager.setActiveProfileId(context, p.id)
+                                                profileDropdownExpanded = false
+                                            }
+                                        )
+                                    }
                                 }
                             }
-                            Text("• Height: ${truckProfile.formattedHeight}")
-                            Text("• Gross Weight: ${truckProfile.weightLbs.toInt()} lbs")
-                            Text("• Width: ${truckProfile.widthInches.toInt()}\" (8.5 ft)")
-                            Text("• Vehicle Type: ${truckProfile.trailerType}")
-                            Text("• Axles: ${truckProfile.axleCount} Axles")
-                            Text("• Hazmat: ${if (truckProfile.isHazmat) "Class 1-9 Active ⚠️" else "Non-Hazmat Standard"}")
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                OutlinedButton(
+                                    onClick = {
+                                        editingProfile = activeProfile
+                                        showProfileEditor = true
+                                    },
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Text("⚙️ Edit Profile")
+                                }
+                                Button(
+                                    onClick = {
+                                        editingProfile = TruckProfile(id = UUID.randomUUID().toString(), profileName = "Custom Rig ${profilesList.size + 1}")
+                                        showProfileEditor = true
+                                    },
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Text("➕ New Profile")
+                                }
+                            }
+
+                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Text("• Height: ${activeProfile.formattedHeight}", style = MaterialTheme.typography.bodySmall)
+                                Text("• Gross Weight: ${activeProfile.weightLbs.toInt()} lbs", style = MaterialTheme.typography.bodySmall)
+                                Text("• Width: ${activeProfile.widthInches.toInt()}\" (8.5 ft)", style = MaterialTheme.typography.bodySmall)
+                                Text("• Vehicle Type: ${activeProfile.trailerType}", style = MaterialTheme.typography.bodySmall)
+                                Text("• Axles: ${activeProfile.axleCount} Axles", style = MaterialTheme.typography.bodySmall)
+                                Text("• Hazmat: ${if (activeProfile.isHazmat) "Class 1-9 Active ⚠️" else "Non-Hazmat Standard"}", style = MaterialTheme.typography.bodySmall)
+                            }
                         }
                     }
 
@@ -149,7 +200,7 @@ fun TruckRouteProApp() {
                     ) {
                         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text("🗺️ Large Vehicle Routing Engine", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                            Text("Routes calculated avoiding low bridges (<${truckProfile.formattedHeight}), weight-restricted roads (<${truckProfile.weightLbs.toInt()} lbs), and non-truck parkways.", style = MaterialTheme.typography.bodySmall)
+                            Text("Routes calculated avoiding low bridges (<${activeProfile.formattedHeight}), weight-restricted roads (<${activeProfile.weightLbs.toInt()} lbs), and non-truck parkways.", style = MaterialTheme.typography.bodySmall)
                         }
                     }
 
@@ -159,7 +210,7 @@ fun TruckRouteProApp() {
                         onClick = { currentScreen = "map" },
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text("🧭 Open LVR Truck Map & GPS")
+                        Text("🧭 Open LVR Truck Map & GPS (${activeProfile.profileName})")
                     }
                 }
             }
@@ -168,9 +219,9 @@ fun TruckRouteProApp() {
 
     if (showProfileEditor) {
         TruckProfileEditorDialog(
-            initialProfile = truckProfile,
-            onSave = { updatedProfile ->
-                saveProfile(updatedProfile)
+            initialProfile = editingProfile,
+            onSave = { updated ->
+                saveUpdatedProfile(updated)
                 showProfileEditor = false
             },
             onDismiss = { showProfileEditor = false }
