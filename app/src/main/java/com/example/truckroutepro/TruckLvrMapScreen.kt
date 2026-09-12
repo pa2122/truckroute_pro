@@ -285,7 +285,9 @@ fun TruckLvrMapScreen(
             routePolyline = result.polylinePoints
             isUserPanningMap = true
             lastUserPanTimestamp = System.currentTimeMillis()
-            fitRouteInCamera(result.polylinePoints)
+            if (isNavigating) {
+                fitRouteInCamera(result.polylinePoints)
+            }
 
             val stops = searchAllTruckStopsAlongRoute(
                 apiKey = "AIzaSyAcscUaSZ1EGCuTGb81kgLD4ul92DXpn5E",
@@ -341,12 +343,14 @@ fun TruckLvrMapScreen(
                 )
             }
 
-            routeTruckStops.forEach { stop ->
-                Marker(
-                    state = remember(stop.location) { MarkerState(position = stop.location) },
-                    title = "🛑 ${stop.name}",
-                    snippet = "Mile ${String.format(Locale.US, "%.1f", stop.mileMarker)} — ${stop.address}"
-                )
+            if (isNavigating) {
+                routeTruckStops.forEach { stop ->
+                    Marker(
+                        state = remember(stop.location) { MarkerState(position = stop.location) },
+                        title = "🛑 ${stop.name}",
+                        snippet = "Mile ${String.format(Locale.US, "%.1f", stop.mileMarker)} — ${stop.address}"
+                    )
+                }
             }
         }
 
