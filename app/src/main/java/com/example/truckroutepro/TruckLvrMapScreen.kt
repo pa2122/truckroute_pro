@@ -374,7 +374,8 @@ fun TruckLvrMapScreen(
 
                         LaunchedEffect(activeStep.instruction) {
                             if (!isVoiceMuted) {
-                                voiceGuidance.speakInstruction("${activeStep.maneuverIcon} ${activeStep.instruction}")
+                                val distanceVoice = if (activeStep.distanceText.isNotBlank()) "In ${activeStep.distanceText}, " else ""
+                                voiceGuidance.speakInstruction("$distanceVoice${activeStep.instruction}")
                             }
                         }
 
@@ -435,7 +436,7 @@ fun TruckLvrMapScreen(
                     shadowElevation = 8.dp,
                     modifier = Modifier
                         .align(Alignment.TopStart)
-                        .padding(top = 80.dp, start = 16.dp)
+                        .padding(top = 100.dp, start = 16.dp)
                         .widthIn(max = 240.dp)
                 ) {
                     Row(
