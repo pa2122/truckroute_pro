@@ -1,5 +1,6 @@
 package com.example.truckroutepro
 
+import android.content.Context
 import android.location.Geocoder
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -24,6 +25,10 @@ import com.google.android.gms.maps.model.LatLng
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.json.JSONObject
+import java.net.HttpURLConnection
+import java.net.URL
+import java.net.URLEncoder
 import java.util.Locale
 
 @Composable
@@ -93,38 +98,18 @@ fun ManualAddressDialog(
                 onClick = {
                     isGeocoding = true
                     errorMessage = ""
-                    scope.launch(Dispatchers.IO) {
-                        try {
-                            val geocoder = Geocoder(context, Locale.US)
+                    scope.launch {
+                        val originLatLng = if (originInput.isNotBlank() && !originInput.equals("Current GPS Location", ignoreCase = true)) {
+                            geocodeAddress(context, originInput)
+                        } else null
 
-                            var originLatLng: LatLng? = null
-                            if (originInput.isNotBlank() && !originInput.equals("Current GPS Location", ignoreCase = true)) {
-                                @Suppress("DEPRECATION")
-                                val originResults = geocoder.getFromLocationName(originInput, 1)
-                                if (!originResults.isNullOrEmpty()) {
-                                    originLatLng = LatLng(originResults[0].latitude, originResults[0].longitude)
-                                }
-                            }
+                        val destLatLng = geocodeAddress(context, destInput)
+                        isGeocoding = false
 
-                            @Suppress("DEPRECATION")
-                            val destResults = geocoder.getFromLocationName(destInput, 1)
-                            if (!destResults.isNullOrEmpty()) {
-                                val destLatLng = LatLng(destResults[0].latitude, destResults[0].longitude)
-                                withContext(Dispatchers.Main) {
-                                    isGeocoding = false
-                                    onRouteCalculated(originInput, originLatLng, destInput, destLatLng)
-                                }
-                            } else {
-                                withContext(Dispatchers.Main) {
-                                    isGeocoding = false
-                                    errorMessage = "Could not locate destination address. Please check spelling."
-                                }
-                            }
-                        } catch (e: Exception) {
-                            withContext(Dispatchers.Main) {
-                                isGeocoding = false
-                                errorMessage = "Geocoding failed: ${e.localizedMessage}"
-                            }
+                        if (destLatLng != null) {
+                            onRouteCalculated(originInput, originLatLng, destInput, destLatLng)
+                        } else {
+                            errorMessage = "Could not locate destination address. Please check spelling or enter coordinates (e.g. 32.77,-96.79)."
                         }
                     }
                 }
@@ -138,4 +123,54 @@ fun ManualAddressDialog(
             }
         }
     )
+}
+
+private suspend fun geocodeAddress(context: Context, addressText: String): LatLng? = withContext(Dispatchers.IO) {
+    if (addressText.isBlank()) return@withContext null
+
+    // 1. Direct LatLng Parsing (e.g. "32.7767, -96.7970")
+    if (addressText.contains(",")) {
+        val parts = addressText.split(",")
+        if (parts.size == 2) {
+            val lat = parts[0].trim().toDoubleOrNull()
+            val lng = parts[1].trim().toDoubleOrNull()
+            if (lat != null && lng != null) {
+                return@withContext LatLng(lat, lng)
+            }
+        }
+    }
+
+    // 2. Android Geocoder API
+    try {
+        val geocoder = Geocoder(context, Locale.US)
+        @Suppress("DEPRECATION")
+        val results = geocoder.getFromLocationName(addressText, 1)
+        if (!results.isNullOrEmpty()) {
+            return@withContext LatLng(results[0].latitude, results[0].longitude)
+        }
+    } catch (_: Exception) {}
+
+    // 3. Fallback: Google Geocoding REST Web Service API
+    try {
+        val encodedAddr = URLEncoder.encode(addressText, "UTF-8")
+        val apiKey = "AIzaSyAcscUaSZ1EGCuTGb81kgLD4ul92DXpn5E"
+        val url = URL("https://maps.googleapis.com/maps/api/geocode/json?address=$encodedAddr&key=$apiKey")
+        val conn = url.openConnection() as HttpURLConnection
+        conn.connectTimeout = 8000
+        conn.readTimeout = 8000
+        if (conn.responseCode == 200) {
+            val jsonStr = conn.inputStream.bufferedReader().use { it.readText() }
+            val jsonObj = JSONObject(jsonStr)
+            val status = jsonObj.optString("status")
+            if (status == "OK") {
+                val results = jsonObj.getJSONArray("results")
+                if (results.length() > 0) {
+                    val location = results.getJSONObject(0).getJSONObject("geometry").getJSONObject("location")
+                    return@withContext LatLng(location.getDouble("lat"), location.getDouble("lng"))
+                }
+            }
+        }
+    } catch (_: Exception) {}
+
+    return@withContext null
 }

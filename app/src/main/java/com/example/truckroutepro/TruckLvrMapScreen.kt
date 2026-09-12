@@ -6,6 +6,7 @@ import android.os.Looper
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -406,23 +407,52 @@ fun TruckLvrMapScreen(
                 } else {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
+                        horizontalArrangement = Arrangement.Center,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            "Profile: ${truckProfile.profileName} (${truckProfile.formattedHeight} | ${truckProfile.weightLbs.toInt()} lbs)",
+                            "🔍 Enter Destination to Calculate Truck Safe Route",
                             style = MaterialTheme.typography.bodySmall,
                             fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Text(
-                            "⚡ $currentSpeedMph mph",
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary
+                            color = MaterialTheme.colorScheme.secondary
                         )
                     }
                 }
+            }
+        }
+
+        // 🛑 US Highway Speed Sign Widget (Bottom Right Corner)
+        Surface(
+            color = Color.White,
+            shape = RoundedCornerShape(6.dp),
+            shadowElevation = 8.dp,
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(bottom = 120.dp, end = 16.dp)
+                .border(2.dp, Color.Black, RoundedCornerShape(6.dp))
+        ) {
+            Column(
+                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    "SPEED",
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Black,
+                    color = Color.Black
+                )
+                Text(
+                    "LIMIT",
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Black,
+                    color = Color.Black
+                )
+                Text(
+                    "$currentSpeedMph",
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = Color.Black
+                )
             }
         }
     }

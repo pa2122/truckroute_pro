@@ -31,6 +31,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -80,7 +81,7 @@ fun TruckRouteProApp() {
         profilesList.find { it.id == activeProfileId } ?: profilesList.firstOrNull() ?: TruckProfile()
     }
 
-    var currentScreen by remember { mutableStateOf("home") }
+    var currentScreen by remember { mutableStateOf("map") }
     var showProfileEditor by remember { mutableStateOf(false) }
     var showAddressDialog by remember { mutableStateOf(false) }
     var editingProfile by remember { mutableStateOf(activeProfile) }
@@ -99,6 +100,8 @@ fun TruckRouteProApp() {
     }
 
     var profileDropdownExpanded by remember { mutableStateOf(false) }
+    var vehicleSectionExpanded by remember { mutableStateOf(true) }
+    var navigationSectionExpanded by remember { mutableStateOf(true) }
 
     ModalNavigationDrawer(
         drawerState = drawerState,
@@ -111,42 +114,95 @@ fun TruckRouteProApp() {
                         .padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Text("🚛 TruckRoute Pro", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                    Text("Commercial Truck Navigation Menu", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text("🚛 TruckRoute Pro", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                            Text("Commercial LVR Navigation", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.secondary)
+                        }
+                        Button(
+                            onClick = { scope.launch { drawerState.close() } }
+                        ) {
+                            Text("⬅️ Close")
+                        }
+                    }
 
                     HorizontalDivider()
 
-                    NavigationDrawerItem(
-                        label = { Text("🗺️ LVR Truck Map & GPS") },
-                        selected = currentScreen == "map",
-                        onClick = {
-                            currentScreen = "map"
-                            scope.launch { drawerState.close() }
+                    // 🗺️ Navigation Section Dropdown
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("🗺️ Navigation & Routes", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                        TextButton(onClick = { navigationSectionExpanded = !navigationSectionExpanded }) {
+                            Text(if (navigationSectionExpanded) "▼" else "▶")
                         }
-                    )
+                    }
 
-                    NavigationDrawerItem(
-                        label = { Text("📍 Manual Address Entry") },
-                        selected = false,
-                        onClick = {
-                            showAddressDialog = true
-                            scope.launch { drawerState.close() }
-                        }
-                    )
+                    if (navigationSectionExpanded) {
+                        NavigationDrawerItem(
+                            label = { Text("🗺️ Open LVR Truck Map & GPS") },
+                            selected = currentScreen == "map",
+                            onClick = {
+                                currentScreen = "map"
+                                scope.launch { drawerState.close() }
+                            }
+                        )
 
-                    NavigationDrawerItem(
-                        label = { Text("⚙️ Truck Configurations (${activeProfile.profileName})") },
-                        selected = false,
-                        onClick = {
-                            editingProfile = activeProfile
-                            showProfileEditor = true
-                            scope.launch { drawerState.close() }
+                        NavigationDrawerItem(
+                            label = { Text("📍 Manual Address Entry") },
+                            selected = false,
+                            onClick = {
+                                showAddressDialog = true
+                                scope.launch { drawerState.close() }
+                            }
+                        )
+                    }
+
+                    HorizontalDivider()
+
+                    // ⚙️ Vehicle Profiles Section Dropdown
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("⚙️ Vehicle Configurations", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                        TextButton(onClick = { vehicleSectionExpanded = !vehicleSectionExpanded }) {
+                            Text(if (vehicleSectionExpanded) "▼" else "▶")
                         }
-                    )
+                    }
+
+                    if (vehicleSectionExpanded) {
+                        NavigationDrawerItem(
+                            label = { Text("⚙️ Edit Profile (${activeProfile.profileName})") },
+                            selected = false,
+                            onClick = {
+                                editingProfile = activeProfile
+                                showProfileEditor = true
+                                scope.launch { drawerState.close() }
+                            }
+                        )
+
+                        NavigationDrawerItem(
+                            label = { Text("➕ Create New Truck Setup") },
+                            selected = false,
+                            onClick = {
+                                editingProfile = TruckProfile(id = UUID.randomUUID().toString(), profileName = "Custom Rig ${profilesList.size + 1}")
+                                showProfileEditor = true
+                                scope.launch { drawerState.close() }
+                            }
+                        )
+                    }
 
                     Spacer(modifier = Modifier.weight(1f))
                     HorizontalDivider()
-                    Text("Google LVR Engine Active", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.secondary)
+                    Text("Active: ${activeProfile.profileName} (${activeProfile.formattedHeight} | ${activeProfile.weightLbs.toInt()} lbs)", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
                 }
             }
         }
