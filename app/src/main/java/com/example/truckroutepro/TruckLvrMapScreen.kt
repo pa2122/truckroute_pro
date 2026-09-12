@@ -124,6 +124,8 @@ fun TruckLvrMapScreen(
     var lastUserPanTimestamp by remember { mutableLongStateOf(0L) }
     var isBottomHudExpanded by remember { mutableStateOf(false) }
     var bottomHudHeightPx by remember { mutableIntStateOf(0) }
+    var isNavigating by remember { mutableStateOf(false) }
+    var showTruckStopFinder by remember { mutableStateOf(false) }
 
     val density = LocalDensity.current
     val bottomHudHeightDp = with(density) { bottomHudHeightPx.toDp() }
@@ -135,6 +137,7 @@ fun TruckLvrMapScreen(
     val fusedLocationClient = remember { LocationServices.getFusedLocationProviderClient(context) }
 
     fun updateCameraOrientation(location: LatLng, heading: Float, distMiles: Double, force: Boolean = false) {
+        if (!isNavigating && !force) return
         if (isUserPanningMap && !force) return
 
         val targetBearing = when (orientationMode) {
@@ -400,6 +403,41 @@ fun TruckLvrMapScreen(
                         }
                     }
 
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        if (!isNavigating) {
+                            Button(
+                                onClick = {
+                                    isNavigating = true
+                                    isUserPanningMap = false
+                                    triggerGpsUpdate()
+                                },
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text("▶️ Start Nav")
+                            }
+                        } else {
+                            OutlinedButton(
+                                onClick = {
+                                    isNavigating = false
+                                    fitRouteInCamera(res.polylinePoints)
+                                },
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text("⏸️ Overview")
+                            }
+                        }
+
+                        OutlinedButton(
+                            onClick = { showTruckStopFinder = true },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("🚛 Find Truck Stops")
+                        }
+                    }
+
                     if (isBottomHudExpanded) {
                         Text(
                             res.warningMessage,
@@ -455,9 +493,9 @@ fun TruckLvrMapScreen(
             }
         }
 
-        // ↖️ Next Turn Guidance Box (Upper-Left Corner Below Top Bar)
+        // ↖️ Next Turn Guidance Box (Upper-Left Corner Below Top Bar) - Only show during active navigation!
         val turnRes = routeResult
-        if (turnRes != null) {
+        if (isNavigating && turnRes != null) {
             val turnSteps = turnRes.navSteps.filter { !it.instruction.contains("Proceed on truck-approved route", ignoreCase = true) }
             if (turnSteps.isNotEmpty()) {
                 val nextTurnStep = turnSteps.first()
@@ -566,6 +604,34 @@ fun TruckLvrMapScreen(
                 showAddressDialog = false
             },
             onDismiss = { showAddressDialog = false }
+        )
+    }
+
+    if (showTruckStopFinder) {
+        val activePolyline = routePolyline
+        val activeDist = routeResult?.distanceMiles ?: 100.0
+        TruckStopFinderDialog(
+            apiKey = "AIzaSyAcscUaSZ1EGCuTGb81kgLD4ul92DXpn5E",
+            routePolyline = activePolyline,
+            totalDistanceMiles = activeDist,
+            onTruckStopAdded = { stopLatLng, stopAddress ->
+                val currentRes = routeResult
+                val existingWaypoints = currentRes?.waypoints?.toMutableList() ?: mutableListOf()
+                val existingAddresses = currentRes?.waypointAddresses?.toMutableList() ?: mutableListOf()
+
+                existingWaypoints.add(stopLatLng)
+                existingAddresses.add(stopAddress)
+
+                calculateRoute(
+                    destLatLng = destinationLatLng ?: stopLatLng,
+                    destText = destinationAddressText,
+                    customOrigin = null,
+                    waypoints = existingWaypoints,
+                    waypointAddresses = existingAddresses
+                )
+                showTruckStopFinder = false
+            },
+            onDismiss = { showTruckStopFinder = false }
         )
     }
 }
