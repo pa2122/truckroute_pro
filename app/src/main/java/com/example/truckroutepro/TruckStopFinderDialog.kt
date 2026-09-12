@@ -37,7 +37,6 @@ import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
-import java.net.URLEncoder
 import java.util.Locale
 
 data class TruckStopOption(
@@ -282,57 +281,76 @@ fun queryTruckStopsNearLocation(
     try {
         val lat = location.latitude
         val lng = location.longitude
-        val encodedQuery = URLEncoder.encode("truck stop OR travel center OR rest area", "UTF-8")
-        val urlStr = "https://maps.googleapis.com/maps/api/place/textsearch/json?query=$encodedQuery&location=$lat,$lng&radius=40000&key=$apiKey"
-        Log.d("TruckStopFinder", "Querying Places URL: $urlStr")
-        val conn = URL(urlStr).openConnection() as HttpURLConnection
+        val url = URL("https://places.googleapis.com/v1/places:searchText")
+        val conn = url.openConnection() as HttpURLConnection
+        conn.requestMethod = "POST"
+        conn.setRequestProperty("Content-Type", "application/json")
+        conn.setRequestProperty("X-Goog-Api-Key", apiKey)
+        conn.setRequestProperty("X-Goog-FieldMask", "places.displayName,places.formattedAddress,places.location")
+        conn.doOutput = true
         conn.connectTimeout = 8000
         conn.readTimeout = 8000
 
+        val requestBody = JSONObject().apply {
+            put("textQuery", "truck stop OR travel center OR rest area")
+            put("locationBias", JSONObject().apply {
+                put("circle", JSONObject().apply {
+                    put("center", JSONObject().apply {
+                        put("latitude", lat)
+                        put("longitude", lng)
+                    })
+                    put("radius", 40000.0)
+                })
+            })
+        }
+
+        conn.outputStream.use { os ->
+            val input = requestBody.toString().toByteArray(Charsets.UTF_8)
+            os.write(input, 0, input.size)
+        }
+
         val responseCode = conn.responseCode
-        Log.d("TruckStopFinder", "HTTP Response Code: $responseCode")
+        Log.d("TruckStopFinder", "Places API (New) Response Code: $responseCode")
 
         val jsonText = if (responseCode == 200) {
             conn.inputStream.bufferedReader().use { it.readText() }
         } else {
             conn.errorStream?.bufferedReader()?.use { it.readText() } ?: ""
         }
-        Log.d("TruckStopFinder", "API Response: $jsonText")
+        Log.d("TruckStopFinder", "Places API (New) Response: $jsonText")
 
         if (responseCode == 200 && jsonText.isNotBlank()) {
             val jsonObj = JSONObject(jsonText)
-            val status = jsonObj.optString("status")
-            val errorMessage = jsonObj.optString("error_message")
-            Log.d("TruckStopFinder", "API Status: $status, ErrorMessage: $errorMessage")
-
-            if (status == "OK" && jsonObj.has("results")) {
-                val results = jsonObj.getJSONArray("results")
+            if (jsonObj.has("places")) {
+                val results = jsonObj.getJSONArray("places")
                 val list = mutableListOf<TruckStopOption>()
 
                 for (i in 0 until results.length()) {
                     val r = results.getJSONObject(i)
-                    val name = r.optString("name", "Truck Stop")
-                    val address = r.optString("formatted_address", r.optString("vicinity", ""))
-                    val locObj = r.getJSONObject("geometry").getJSONObject("location")
-                    val stopLatLng = LatLng(locObj.getDouble("lat"), locObj.getDouble("lng"))
+                    val nameObj = r.optJSONObject("displayName")
+                    val name = nameObj?.optString("text", "Truck Stop") ?: "Truck Stop"
+                    val address = r.optString("formattedAddress", "")
+                    val locObj = r.optJSONObject("location")
+                    if (locObj != null) {
+                        val stopLatLng = LatLng(locObj.getDouble("latitude"), locObj.getDouble("longitude"))
+                        val approxMile = baseMile + (i * 0.8 - 2.0)
 
-                    val approxMile = baseMile + (i * 0.8 - 2.0)
-
-                    list.add(
-                        TruckStopOption(
-                            name = name,
-                            address = address,
-                            location = stopLatLng,
-                            mileMarker = approxMile.coerceAtLeast(0.0)
+                        list.add(
+                            TruckStopOption(
+                                name = name,
+                                address = address,
+                                location = stopLatLng,
+                                mileMarker = approxMile.coerceAtLeast(0.0)
+                            )
                         )
-                    )
+                    }
                 }
-                Log.d("TruckStopFinder", "Found ${list.size} truck stops near location.")
+                Log.d("TruckStopFinder", "Found ${list.size} truck stops via Places API (New).")
                 return list
             }
         }
     } catch (e: Exception) {
-        Log.e("TruckStopFinder", "Exception querying truck stops", e)
+        Log.e("TruckStopFinder", "Exception querying Places API (New)", e)
         e.printStackTrace()
     }
 
