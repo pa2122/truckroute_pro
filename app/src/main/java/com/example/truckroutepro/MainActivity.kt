@@ -102,6 +102,7 @@ fun TruckRouteProApp() {
 
     ModalNavigationDrawer(
         drawerState = drawerState,
+        gesturesEnabled = currentScreen != "map",
         drawerContent = {
             ModalDrawerSheet {
                 Column(
