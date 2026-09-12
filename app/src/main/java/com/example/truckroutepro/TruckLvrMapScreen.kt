@@ -120,6 +120,7 @@ fun TruckLvrMapScreen(
     var truckHeading by remember { mutableFloatStateOf(0f) }
     var hasCenteredMap by remember { mutableStateOf(false) }
     var routeResult by remember { mutableStateOf<TruckRouteResult?>(null) }
+    var routeTruckStops by remember { mutableStateOf<List<TruckStopOption>>(emptyList()) }
     var isUserPanningMap by remember { mutableStateOf(false) }
     var lastUserPanTimestamp by remember { mutableLongStateOf(0L) }
     var isBottomHudExpanded by remember { mutableStateOf(false) }
@@ -285,6 +286,13 @@ fun TruckLvrMapScreen(
             isUserPanningMap = true
             lastUserPanTimestamp = System.currentTimeMillis()
             fitRouteInCamera(result.polylinePoints)
+
+            val stops = searchAllTruckStopsAlongRoute(
+                apiKey = "AIzaSyAcscUaSZ1EGCuTGb81kgLD4ul92DXpn5E",
+                routePolyline = result.polylinePoints,
+                totalDistanceMiles = result.distanceMiles
+            )
+            routeTruckStops = stops
         }
     }
 
@@ -330,6 +338,14 @@ fun TruckLvrMapScreen(
                     jointType = JointType.ROUND,
                     startCap = RoundCap(),
                     endCap = RoundCap()
+                )
+            }
+
+            routeTruckStops.forEach { stop ->
+                Marker(
+                    state = remember(stop.location) { MarkerState(position = stop.location) },
+                    title = "🛑 ${stop.name}",
+                    snippet = "Mile ${String.format(Locale.US, "%.1f", stop.mileMarker)} — ${stop.address}"
                 )
             }
         }
@@ -614,6 +630,7 @@ fun TruckLvrMapScreen(
             apiKey = "AIzaSyAcscUaSZ1EGCuTGb81kgLD4ul92DXpn5E",
             routePolyline = activePolyline,
             totalDistanceMiles = activeDist,
+            preloadedStops = routeTruckStops,
             onTruckStopAdded = { stopLatLng, stopAddress ->
                 val currentRes = routeResult
                 val existingWaypoints = currentRes?.waypoints?.toMutableList() ?: mutableListOf()

@@ -51,6 +51,7 @@ fun TruckStopFinderDialog(
     apiKey: String,
     routePolyline: List<LatLng>,
     totalDistanceMiles: Double,
+    preloadedStops: List<TruckStopOption> = emptyList(),
     onTruckStopAdded: (stopLatLng: LatLng, stopAddressText: String) -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -91,7 +92,12 @@ fun TruckStopFinderDialog(
     }
 
     LaunchedEffect(Unit) {
-        performAllTruckStopsSearch()
+        if (preloadedStops.isNotEmpty()) {
+            truckStopsList = preloadedStops
+            statusMessage = "Found ${preloadedStops.size} truck stops along route (sorted by mile marker):"
+        } else {
+            performAllTruckStopsSearch()
+        }
     }
 
     AlertDialog(
@@ -225,7 +231,7 @@ fun TruckStopFinderDialog(
     )
 }
 
-private suspend fun searchAllTruckStopsAlongRoute(
+suspend fun searchAllTruckStopsAlongRoute(
     apiKey: String,
     routePolyline: List<LatLng>,
     totalDistanceMiles: Double
@@ -256,7 +262,7 @@ private suspend fun searchAllTruckStopsAlongRoute(
     allFound.sortedBy { it.mileMarker }
 }
 
-private suspend fun searchTruckStopsNearMile(
+suspend fun searchTruckStopsNearMile(
     apiKey: String,
     routePolyline: List<LatLng>,
     targetMiles: Double
@@ -267,7 +273,7 @@ private suspend fun searchTruckStopsNearMile(
     queryTruckStopsNearLocation(apiKey, samplePoint, targetMiles)
 }
 
-private fun queryTruckStopsNearLocation(
+fun queryTruckStopsNearLocation(
     apiKey: String,
     location: LatLng,
     baseMile: Double
@@ -318,7 +324,7 @@ private fun queryTruckStopsNearLocation(
     return emptyList()
 }
 
-private fun getPointAtDistance(polyline: List<LatLng>, targetMiles: Double): LatLng? {
+fun getPointAtDistance(polyline: List<LatLng>, targetMiles: Double): LatLng? {
     if (polyline.isEmpty()) return null
     var accumulatedMeters = 0.0
     val targetMeters = targetMiles * 1609.34
