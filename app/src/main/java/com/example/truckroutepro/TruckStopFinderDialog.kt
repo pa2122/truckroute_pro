@@ -13,14 +13,14 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableDoubleStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -54,30 +54,43 @@ fun TruckStopFinderDialog(
     onDismiss: () -> Unit
 ) {
     val scope = rememberCoroutineScope()
-    var selectedTargetMiles by remember { mutableDoubleStateOf(50.0.coerceAtMost(totalDistanceMiles)) }
+    var customMilesInput by remember { mutableStateOf("") }
     var isSearching by remember { mutableStateOf(false) }
     var truckStopsList by remember { mutableStateOf<List<TruckStopOption>>(emptyList()) }
     var statusMessage by remember { mutableStateOf("") }
 
-    val presetMilesOptions = listOf(30.0, 50.0, 100.0, 150.0, 200.0, 300.0)
-
-    fun performTruckStopSearch(targetMiles: Double) {
+    fun performAllTruckStopsSearch() {
         isSearching = true
-        statusMessage = "Searching truck stops around ${targetMiles.toInt()} miles..."
+        statusMessage = "Searching all truck stops along route (${totalDistanceMiles.toInt()} mi)..."
+        scope.launch {
+            val results = searchAllTruckStopsAlongRoute(apiKey, routePolyline, totalDistanceMiles)
+            truckStopsList = results
+            isSearching = false
+            statusMessage = if (results.isNotEmpty()) {
+                "Found ${results.size} truck stops along route (sorted by mile marker):"
+            } else {
+                "No truck stops found along this route section."
+            }
+        }
+    }
+
+    fun performSpecificMileageSearch(targetMiles: Double) {
+        isSearching = true
+        statusMessage = "Searching truck stops near ${targetMiles.toInt()} miles..."
         scope.launch {
             val results = searchTruckStopsNearMile(apiKey, routePolyline, targetMiles)
             truckStopsList = results
             isSearching = false
             statusMessage = if (results.isNotEmpty()) {
-                "Found ${results.size} truck stops within safe distance window (${(targetMiles - 15).coerceAtLeast(0.0).toInt()} to ${targetMiles.toInt()} miles):"
+                "Found ${results.size} truck stops around ${targetMiles.toInt()} miles (safe stopping window):"
             } else {
-                "No truck stops found near ${targetMiles.toInt()} miles. Try selecting a different mileage threshold."
+                "No truck stops found near ${targetMiles.toInt()} miles. Try searching all truck stops."
             }
         }
     }
 
     LaunchedEffect(Unit) {
-        performTruckStopSearch(selectedTargetMiles)
+        performAllTruckStopsSearch()
     }
 
     AlertDialog(
@@ -85,12 +98,12 @@ fun TruckStopFinderDialog(
         title = {
             Column {
                 Text(
-                    "🚛 Search Truck Stops Along Route",
+                    "🚛 Add Truck Stop / Rest Area",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    "Select target driving distance to find Love's, Pilot Flying J, TA Petro, and Rest Areas before reaching your limit.",
+                    "Search all truck stops along your route or enter a target mileage (e.g. 50 mi) to find safe stops before reaching your limit.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.secondary
                 )
@@ -102,27 +115,45 @@ fun TruckStopFinderDialog(
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 Text(
-                    "Select Target Distance Window:",
+                    "Search by Distance or View All Along Route:",
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.Bold
                 )
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    presetMilesOptions.forEach { miles ->
-                        if (miles <= totalDistanceMiles + 20.0) {
-                            FilterChip(
-                                selected = selectedTargetMiles == miles,
-                                onClick = {
-                                    selectedTargetMiles = miles
-                                    performTruckStopSearch(miles)
-                                },
-                                label = { Text("${miles.toInt()} mi") }
-                            )
+                    OutlinedTextField(
+                        value = customMilesInput,
+                        onValueChange = { customMilesInput = it.filter { char -> char.isDigit() } },
+                        label = { Text("Search Distance (e.g. 50 mi)") },
+                        singleLine = true,
+                        modifier = Modifier.weight(1f)
+                    )
+
+                    Button(
+                        enabled = customMilesInput.isNotBlank() && !isSearching,
+                        onClick = {
+                            val miles = customMilesInput.toDoubleOrNull()
+                            if (miles != null) {
+                                performSpecificMileageSearch(miles)
+                            }
                         }
+                    ) {
+                        Text("🔍 Near Distance")
                     }
+                }
+
+                OutlinedButton(
+                    onClick = {
+                        customMilesInput = ""
+                        performAllTruckStopsSearch()
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("🛣️ Show All Truck Stops Along Route")
                 }
 
                 if (statusMessage.isNotBlank()) {
@@ -193,6 +224,37 @@ fun TruckStopFinderDialog(
     )
 }
 
+private suspend fun searchAllTruckStopsAlongRoute(
+    apiKey: String,
+    routePolyline: List<LatLng>,
+    totalDistanceMiles: Double
+): List<TruckStopOption> = withContext(Dispatchers.IO) {
+    if (routePolyline.isEmpty() || apiKey.isBlank()) return@withContext emptyList()
+
+    val sampleMilesList = mutableListOf<Double>()
+    var currentMile = 20.0
+    while (currentMile < totalDistanceMiles) {
+        sampleMilesList.add(currentMile)
+        currentMile += 35.0
+    }
+    if (sampleMilesList.isEmpty()) sampleMilesList.add(totalDistanceMiles / 2.0)
+
+    val allFound = mutableListOf<TruckStopOption>()
+    val seenNames = mutableSetOf<String>()
+
+    for (mile in sampleMilesList) {
+        val samplePoint = getPointAtDistance(routePolyline, mile) ?: continue
+        val stopsNear = queryTruckStopsNearLocation(apiKey, samplePoint, mile)
+        for (s in stopsNear) {
+            if (seenNames.add(s.name.lowercase())) {
+                allFound.add(s)
+            }
+        }
+    }
+
+    allFound.sortedBy { it.mileMarker }
+}
+
 private suspend fun searchTruckStopsNearMile(
     apiKey: String,
     routePolyline: List<LatLng>,
@@ -201,10 +263,17 @@ private suspend fun searchTruckStopsNearMile(
     if (routePolyline.isEmpty() || apiKey.isBlank()) return@withContext emptyList()
 
     val samplePoint = getPointAtDistance(routePolyline, targetMiles) ?: routePolyline.last()
+    queryTruckStopsNearLocation(apiKey, samplePoint, targetMiles)
+}
 
+private fun queryTruckStopsNearLocation(
+    apiKey: String,
+    location: LatLng,
+    baseMile: Double
+): List<TruckStopOption> {
     try {
-        val lat = samplePoint.latitude
-        val lng = samplePoint.longitude
+        val lat = location.latitude
+        val lng = location.longitude
         val urlStr = "https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=$lat,$lng&radius=30000&keyword=truck+stop&key=$apiKey"
         val conn = URL(urlStr).openConnection() as HttpURLConnection
         conn.connectTimeout = 6000
@@ -226,7 +295,7 @@ private suspend fun searchTruckStopsNearMile(
                     val locObj = r.getJSONObject("geometry").getJSONObject("location")
                     val stopLatLng = LatLng(locObj.getDouble("lat"), locObj.getDouble("lng"))
 
-                    val approxMile = targetMiles + (i * 2.5 - 5.0)
+                    val approxMile = baseMile + (i * 1.5 - 3.0)
 
                     list.add(
                         TruckStopOption(
@@ -237,14 +306,14 @@ private suspend fun searchTruckStopsNearMile(
                         )
                     )
                 }
-                return@withContext list
+                return list
             }
         }
     } catch (e: Exception) {
         e.printStackTrace()
     }
 
-    emptyList()
+    return emptyList()
 }
 
 private fun getPointAtDistance(polyline: List<LatLng>, targetMiles: Double): LatLng? {

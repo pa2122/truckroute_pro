@@ -434,7 +434,7 @@ fun TruckLvrMapScreen(
                             onClick = { showTruckStopFinder = true },
                             modifier = Modifier.weight(1f)
                         ) {
-                            Text("🚛 Find Truck Stops")
+                            Text("➕ Add Stop")
                         }
                     }
 
