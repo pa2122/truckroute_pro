@@ -48,64 +48,75 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun TruckRouteProApp() {
+    var currentScreen by remember { mutableStateOf("home") }
     var truckProfile by remember { mutableStateOf(TruckProfile()) }
 
-    Scaffold { innerPadding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text(
-                "🚛 TruckRoute Pro LVR",
-                style = MaterialTheme.typography.headlineLarge,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
+    when (currentScreen) {
+        "map" -> {
+            TruckLvrMapScreen(
+                truckProfile = truckProfile,
+                onBack = { currentScreen = "home" }
             )
-            Text(
-                "Google Large Vehicle Commercial Truck Navigation",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.secondary,
-                textAlign = TextAlign.Center
-            )
+        }
+        else -> {
+            Scaffold { innerPadding ->
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(innerPadding)
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        "🚛 TruckRoute Pro LVR",
+                        style = MaterialTheme.typography.headlineLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Text(
+                        "Google Large Vehicle Commercial Truck Navigation",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.secondary,
+                        textAlign = TextAlign.Center
+                    )
 
-            Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
 
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-            ) {
-                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("🚛 Vehicle Profile Specifications", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    Text("• Height: ${truckProfile.heightFeet} ft (13' 6\")")
-                    Text("• Gross Weight: ${truckProfile.weightLbs.toInt()} lbs")
-                    Text("• Width: ${truckProfile.widthInches.toInt()}\" (8.5 ft)")
-                    Text("• Trailer Length: ${truckProfile.lengthFeet.toInt()} ft")
-                    Text("• Axles: ${truckProfile.axleCount} Axles")
-                    Text("• Hazmat: ${if (truckProfile.isHazmat) "Yes" else "Non-Hazmat"}")
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text("🚛 Vehicle Profile Specifications", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                            Text("• Height: ${truckProfile.heightFeet} ft (13' 6\")")
+                            Text("• Gross Weight: ${truckProfile.weightLbs.toInt()} lbs")
+                            Text("• Width: ${truckProfile.widthInches.toInt()}\" (8.5 ft)")
+                            Text("• Trailer Length: ${truckProfile.lengthFeet.toInt()} ft")
+                            Text("• Axles: ${truckProfile.axleCount} Axles")
+                            Text("• Hazmat: ${if (truckProfile.isHazmat) "Yes" else "Non-Hazmat"}")
+                        }
+                    }
+
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text("🗺️ Large Vehicle Routing Engine", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                            Text("Routes calculated avoiding low bridges (<13'6\"), weight-restricted roads (<80,000 lbs), and non-truck parkways.", style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.weight(1f))
+
+                    Button(
+                        onClick = { currentScreen = "map" },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("🧭 Open LVR Truck Map & GPS")
+                    }
                 }
-            }
-
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
-            ) {
-                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("🗺️ Large Vehicle Routing Engine", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    Text("Routes calculated avoiding low bridges (<13'6\"), weight-restricted roads (<80,000 lbs), and non-truck parkways.", style = MaterialTheme.typography.bodySmall)
-                }
-            }
-
-            Spacer(modifier = Modifier.weight(1f))
-
-            Button(
-                onClick = { /* Launch LVR Route Map */ },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("🧭 Calculate Truck-Safe Route")
             }
         }
     }
