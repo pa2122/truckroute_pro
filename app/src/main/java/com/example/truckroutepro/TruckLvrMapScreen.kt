@@ -3,6 +3,7 @@ package com.example.truckroutepro
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Looper
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -96,25 +97,36 @@ fun TruckLvrMapScreen(
 
     val fusedLocationClient = remember { LocationServices.getFusedLocationProviderClient(context) }
 
+    fun triggerGpsUpdate() {
+        if (!hasLocationPermission) {
+            Toast.makeText(context, "Location permission required", Toast.LENGTH_SHORT).show()
+            return
+        }
+        try {
+            fusedLocationClient.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, null)
+                .addOnSuccessListener { loc ->
+                    if (loc != null) {
+                        val realLocation = LatLng(loc.latitude, loc.longitude)
+                        truckLocation = realLocation
+                        scope.launch {
+                            try {
+                                cameraPositionState.animate(CameraUpdateFactory.newLatLngZoom(realLocation, 15f))
+                            } catch (_: Exception) {}
+                        }
+                    } else {
+                        Toast.makeText(context, "Acquiring satellite GPS lock...", Toast.LENGTH_SHORT).show()
+                    }
+                }
+        } catch (e: SecurityException) {
+            e.printStackTrace()
+        }
+    }
+
     DisposableEffect(hasLocationPermission) {
         if (hasLocationPermission) {
-            try {
-                fusedLocationClient.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, null)
-                    .addOnSuccessListener { loc ->
-                        if (loc != null) {
-                            val realLocation = LatLng(loc.latitude, loc.longitude)
-                            truckLocation = realLocation
-                            if (!hasCenteredMap) {
-                                hasCenteredMap = true
-                                scope.launch {
-                                    try {
-                                        cameraPositionState.animate(CameraUpdateFactory.newLatLngZoom(realLocation, 14f))
-                                    } catch (_: Exception) {}
-                                }
-                            }
-                        }
-                    }
+            triggerGpsUpdate()
 
+            try {
                 val locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 3000L)
                     .setMinUpdateIntervalMillis(1500L)
                     .setGranularity(Granularity.GRANULARITY_FINE)
@@ -129,7 +141,7 @@ fun TruckLvrMapScreen(
                             hasCenteredMap = true
                             scope.launch {
                                 try {
-                                    cameraPositionState.animate(CameraUpdateFactory.newLatLngZoom(updated, 14f))
+                                    cameraPositionState.animate(CameraUpdateFactory.newLatLngZoom(updated, 15f))
                                 } catch (_: Exception) {}
                             }
                         }
@@ -226,11 +238,13 @@ fun TruckLvrMapScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                         OutlinedButton(onClick = onOpenDrawer) {
                             Text("☰ Menu")
                         }
-                        Text("🚛 TruckRoute Pro LVR", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                        OutlinedButton(onClick = { triggerGpsUpdate() }) {
+                            Text("🎯 Locate Me")
+                        }
                     }
                     OutlinedButton(onClick = onBack) {
                         Text("Home")
