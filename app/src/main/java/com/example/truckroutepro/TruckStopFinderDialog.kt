@@ -1,6 +1,7 @@
 package com.example.truckroutepro
 
 import android.location.Location
+import android.util.Log
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -283,14 +284,26 @@ fun queryTruckStopsNearLocation(
         val lng = location.longitude
         val encodedQuery = URLEncoder.encode("truck stop OR travel center OR rest area", "UTF-8")
         val urlStr = "https://maps.googleapis.com/maps/api/place/textsearch/json?query=$encodedQuery&location=$lat,$lng&radius=40000&key=$apiKey"
+        Log.d("TruckStopFinder", "Querying Places URL: $urlStr")
         val conn = URL(urlStr).openConnection() as HttpURLConnection
         conn.connectTimeout = 8000
         conn.readTimeout = 8000
 
-        if (conn.responseCode == 200) {
-            val jsonText = conn.inputStream.bufferedReader().use { it.readText() }
+        val responseCode = conn.responseCode
+        Log.d("TruckStopFinder", "HTTP Response Code: $responseCode")
+
+        val jsonText = if (responseCode == 200) {
+            conn.inputStream.bufferedReader().use { it.readText() }
+        } else {
+            conn.errorStream?.bufferedReader()?.use { it.readText() } ?: ""
+        }
+        Log.d("TruckStopFinder", "API Response: $jsonText")
+
+        if (responseCode == 200 && jsonText.isNotBlank()) {
             val jsonObj = JSONObject(jsonText)
             val status = jsonObj.optString("status")
+            val errorMessage = jsonObj.optString("error_message")
+            Log.d("TruckStopFinder", "API Status: $status, ErrorMessage: $errorMessage")
 
             if (status == "OK" && jsonObj.has("results")) {
                 val results = jsonObj.getJSONArray("results")
@@ -314,10 +327,12 @@ fun queryTruckStopsNearLocation(
                         )
                     )
                 }
+                Log.d("TruckStopFinder", "Found ${list.size} truck stops near location.")
                 return list
             }
         }
     } catch (e: Exception) {
+        Log.e("TruckStopFinder", "Exception querying truck stops", e)
         e.printStackTrace()
     }
 
