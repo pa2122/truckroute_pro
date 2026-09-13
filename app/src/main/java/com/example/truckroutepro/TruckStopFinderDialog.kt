@@ -3,7 +3,6 @@ package com.example.truckroutepro
 import android.location.Location
 import android.util.Log
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -16,10 +15,9 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -63,9 +61,8 @@ fun TruckStopFinderDialog(
     var isSearching by remember { mutableStateOf(false) }
     var truckStopsList by remember { mutableStateOf<List<TruckStopOption>>(emptyList()) }
     var statusMessage by remember { mutableStateOf("") }
-    var expandedDistanceDropdown by remember { mutableStateOf(false) }
-    var selectedDistanceText by remember { mutableStateOf("Search Distance (Dropdown)") }
-    val distanceOptions = listOf(30, 50, 100, 150, 200)
+    var customMilesInput by remember { mutableStateOf("") }
+    val presetDistances = listOf(30, 50, 100, 150, 200)
 
     fun performAllTruckStopsSearch() {
         isSearching = true
@@ -134,27 +131,47 @@ fun TruckStopFinderDialog(
                     Text("🛣️ Show All Truck Stops Along Route")
                 }
 
-                Box(modifier = Modifier.fillMaxWidth()) {
-                    OutlinedButton(
-                        onClick = { expandedDistanceDropdown = true },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text("🔍 $selectedDistanceText ▼")
-                    }
+                // Custom distance text input & search button
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedTextField(
+                        value = customMilesInput,
+                        onValueChange = { customMilesInput = it.filter { char -> char.isDigit() } },
+                        label = { Text("Custom Distance (mi)") },
+                        singleLine = true,
+                        modifier = Modifier.weight(1f)
+                    )
 
-                    DropdownMenu(
-                        expanded = expandedDistanceDropdown,
-                        onDismissRequest = { expandedDistanceDropdown = false }
+                    Button(
+                        enabled = customMilesInput.isNotBlank() && !isSearching,
+                        onClick = {
+                            val miles = customMilesInput.toDoubleOrNull()
+                            if (miles != null) {
+                                performSpecificMileageSearch(miles)
+                            }
+                        }
                     ) {
-                        distanceOptions.forEach { miles ->
-                            DropdownMenuItem(
-                                text = { Text("$miles Miles") },
-                                onClick = {
-                                    expandedDistanceDropdown = false
-                                    selectedDistanceText = "$miles Miles"
-                                    performSpecificMileageSearch(miles.toDouble())
-                                }
-                            )
+                        Text("🔍 Search")
+                    }
+                }
+
+                // Predefined distance preset buttons
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    presetDistances.forEach { preset ->
+                        OutlinedButton(
+                            onClick = {
+                                customMilesInput = preset.toString()
+                                performSpecificMileageSearch(preset.toDouble())
+                            },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("$preset mi")
                         }
                     }
                 }
@@ -319,7 +336,7 @@ fun queryTruckStopsNearLocation(
                         put("latitude", lat)
                         put("longitude", lng)
                     })
-                    put("radius", 25000.0) // 25km radius corridor
+                    put("radius", 25000.0)
                 })
             })
         }
@@ -351,7 +368,6 @@ fun queryTruckStopsNearLocation(
                     if (locObj != null) {
                         val stopLatLng = LatLng(locObj.getDouble("latitude"), locObj.getDouble("longitude"))
                         
-                        // Calculate true route mile marker and verify corridor distance
                         val calcResult = calculateStopMileMarkerAndCorridor(stopLatLng, routePolyline)
                         if (calcResult != null) {
                             val (trueMileMarker, _) = calcResult
@@ -416,7 +432,6 @@ fun calculateStopMileMarkerAndCorridor(
     val distOffRouteMiles = minDistMeters / 1609.34
     val mileMarker = bestCumulativeMeters / 1609.34
 
-    // Filter out stops more than 10 miles off the route corridor
     if (distOffRouteMiles > 10.0) return null
 
     return Pair(mileMarker, distOffRouteMiles)
