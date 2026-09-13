@@ -591,7 +591,7 @@ fun TruckLvrMapScreen(
                         containerColor = if (isSatelliteView) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface
                     )
                 ) {
-                    Text(if (isSatelliteView) "Map" else "Satellite")
+                    Text(if (isSatelliteView) "🗺️" else "🛰️")
                 }
             }
 
