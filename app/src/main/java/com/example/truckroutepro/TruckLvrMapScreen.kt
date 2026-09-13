@@ -287,11 +287,8 @@ fun TruckLvrMapScreen(
             )
             routeResult = result
             routePolyline = result.polylinePoints
-            isUserPanningMap = true
-            lastUserPanTimestamp = System.currentTimeMillis()
-            if (isNavigating) {
-                fitRouteInCamera(result.polylinePoints)
-            }
+            isUserPanningMap = false
+            fitRouteInCamera(result.polylinePoints)
 
             val stops = searchAllTruckStopsAlongRoute(
                 apiKey = "AIzaSyAcscUaSZ1EGCuTGb81kgLD4ul92DXpn5E",
@@ -450,6 +447,12 @@ fun TruckLvrMapScreen(
                                     isNavigating = true
                                     isUserPanningMap = false
                                     triggerGpsUpdate()
+                                    val currentRes = routeResult
+                                    if (currentRes != null && currentRes.waypoints.isNotEmpty()) {
+                                        fitRouteInCamera(listOf(currentRes.waypoints.first()))
+                                    } else if (currentRes != null) {
+                                        fitRouteInCamera(currentRes.polylinePoints)
+                                    }
                                 },
                                 modifier = Modifier.weight(1f)
                             ) {
@@ -595,22 +598,24 @@ fun TruckLvrMapScreen(
                 }
             }
 
-            // 🎯 GPS Locate / Recenter Button
-            Surface(
-                color = if (isUserPanningMap) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
-                shape = RoundedCornerShape(12.dp),
-                shadowElevation = 8.dp
-            ) {
-                OutlinedButton(
-                    onClick = {
-                        isUserPanningMap = false
-                        triggerGpsUpdate()
-                    },
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        containerColor = if (isUserPanningMap) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface
-                    )
+            // 🎯 GPS Locate / Recenter Button (Only show when map has moved off user icon)
+            if (isUserPanningMap) {
+                Surface(
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                    shape = RoundedCornerShape(12.dp),
+                    shadowElevation = 8.dp
                 ) {
-                    Text(if (isUserPanningMap) "🎯 Recenter" else "🎯")
+                    OutlinedButton(
+                        onClick = {
+                            isUserPanningMap = false
+                            triggerGpsUpdate()
+                        },
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer
+                        )
+                    ) {
+                        Text("🎯 Recenter")
+                    }
                 }
             }
 

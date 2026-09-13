@@ -3,9 +3,11 @@ package com.example.truckroutepro
 import android.location.Location
 import android.util.Log
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -14,9 +16,10 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -60,7 +63,9 @@ fun TruckStopFinderDialog(
     var isSearching by remember { mutableStateOf(false) }
     var truckStopsList by remember { mutableStateOf<List<TruckStopOption>>(emptyList()) }
     var statusMessage by remember { mutableStateOf("") }
-    var customMilesInput by remember { mutableStateOf("") }
+    var expandedDistanceDropdown by remember { mutableStateOf(false) }
+    var selectedDistanceText by remember { mutableStateOf("Search Distance (Dropdown)") }
+    val distanceOptions = listOf(30, 50, 100, 150, 200)
 
     fun performAllTruckStopsSearch() {
         isSearching = true
@@ -119,7 +124,7 @@ fun TruckStopFinderDialog(
         },
         text = {
             Column(
-                modifier = Modifier.verticalScroll(rememberScrollState()),
+                modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 OutlinedButton(
@@ -129,29 +134,28 @@ fun TruckStopFinderDialog(
                     Text("🛣️ Show All Truck Stops Along Route")
                 }
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    OutlinedTextField(
-                        value = customMilesInput,
-                        onValueChange = { customMilesInput = it.filter { char -> char.isDigit() } },
-                        label = { Text("Custom Distance (e.g. 75 mi)") },
-                        singleLine = true,
-                        modifier = Modifier.weight(1f)
-                    )
-
-                    Button(
-                        enabled = customMilesInput.isNotBlank() && !isSearching,
-                        onClick = {
-                            val miles = customMilesInput.toDoubleOrNull()
-                            if (miles != null) {
-                                performSpecificMileageSearch(miles)
-                            }
-                        }
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    OutlinedButton(
+                        onClick = { expandedDistanceDropdown = true },
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text("🔍 Search")
+                        Text("🔍 $selectedDistanceText ▼")
+                    }
+
+                    DropdownMenu(
+                        expanded = expandedDistanceDropdown,
+                        onDismissRequest = { expandedDistanceDropdown = false }
+                    ) {
+                        distanceOptions.forEach { miles ->
+                            DropdownMenuItem(
+                                text = { Text("$miles Miles") },
+                                onClick = {
+                                    expandedDistanceDropdown = false
+                                    selectedDistanceText = "$miles Miles"
+                                    performSpecificMileageSearch(miles.toDouble())
+                                }
+                            )
+                        }
                     }
                 }
 
@@ -164,65 +168,74 @@ fun TruckStopFinderDialog(
                     )
                 }
 
-                truckStopsList.forEach { stop ->
-                    Card(
-                        shape = RoundedCornerShape(8.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(10.dp),
-                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                // Dedicated scrolling container for the truck stop list
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 350.dp)
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    truckStopsList.forEach { stop ->
+                        Card(
+                            shape = RoundedCornerShape(8.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                            modifier = Modifier.fillMaxWidth()
                         ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
+                            Column(
+                                modifier = Modifier.padding(10.dp),
+                                verticalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
-                                Text(
-                                    stop.name,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.weight(1f)
-                                )
-                                Text(
-                                    "📍 Mile ${String.format(Locale.US, "%.1f", stop.mileMarker)}",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    fontWeight = FontWeight.ExtraBold,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                            }
-
-                            if (stop.address.isNotBlank()) {
-                                Text(
-                                    stop.address,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                OutlinedButton(
-                                    onClick = {
-                                        onShowLocation(stop.location)
-                                        onDismiss()
-                                    },
-                                    modifier = Modifier.weight(1f)
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Text("📍 Show Location")
+                                    Text(
+                                        stop.name,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    Text(
+                                        "📍 Mile ${String.format(Locale.US, "%.1f", stop.mileMarker)}",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
                                 }
 
-                                Button(
-                                    onClick = {
-                                        onTruckStopAdded(stop.location, "${stop.name} (${stop.address})")
-                                        onDismiss()
-                                    },
-                                    modifier = Modifier.weight(1f)
+                                if (stop.address.isNotBlank()) {
+                                    Text(
+                                        stop.address,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
-                                    Text("➕ Add Stop")
+                                    OutlinedButton(
+                                        onClick = {
+                                            onShowLocation(stop.location)
+                                            onDismiss()
+                                        },
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Text("📍 Show Location")
+                                    }
+
+                                    Button(
+                                        onClick = {
+                                            onTruckStopAdded(stop.location, "${stop.name} (${stop.address})")
+                                            onDismiss()
+                                        },
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Text("➕ Add Stop")
+                                    }
                                 }
                             }
                         }
