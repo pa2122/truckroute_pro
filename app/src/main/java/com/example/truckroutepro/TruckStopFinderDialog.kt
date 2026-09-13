@@ -3,6 +3,7 @@ package com.example.truckroutepro
 import android.location.Location
 import android.util.Log
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -13,6 +14,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
@@ -55,14 +57,15 @@ fun TruckStopFinderDialog(
     preloadedStops: List<TruckStopOption> = emptyList(),
     onTruckStopAdded: (stopLatLng: LatLng, stopAddressText: String) -> Unit,
     onShowLocation: (LatLng) -> Unit,
+    onSeeOnMap: (List<TruckStopOption>) -> Unit,
     onDismiss: () -> Unit
 ) {
     val scope = rememberCoroutineScope()
     var isSearching by remember { mutableStateOf(false) }
     var truckStopsList by remember { mutableStateOf<List<TruckStopOption>>(emptyList()) }
     var statusMessage by remember { mutableStateOf("") }
+    var showCustomDistanceInput by remember { mutableStateOf(false) }
     var customMilesInput by remember { mutableStateOf("") }
-    val presetDistances = listOf(30, 50, 100, 150, 200)
 
     fun performAllTruckStopsSearch() {
         isSearching = true
@@ -131,47 +134,38 @@ fun TruckStopFinderDialog(
                     Text("🛣️ Show All Truck Stops Along Route")
                 }
 
-                // Custom distance text input & search button
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                // Collapsible Custom Mileage Text Box
+                OutlinedButton(
+                    onClick = { showCustomDistanceInput = !showCustomDistanceInput },
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    OutlinedTextField(
-                        value = customMilesInput,
-                        onValueChange = { customMilesInput = it.filter { char -> char.isDigit() } },
-                        label = { Text("Custom Distance (mi)") },
-                        singleLine = true,
-                        modifier = Modifier.weight(1f)
-                    )
-
-                    Button(
-                        enabled = customMilesInput.isNotBlank() && !isSearching,
-                        onClick = {
-                            val miles = customMilesInput.toDoubleOrNull()
-                            if (miles != null) {
-                                performSpecificMileageSearch(miles)
-                            }
-                        }
-                    ) {
-                        Text("🔍 Search")
-                    }
+                    Text(if (showCustomDistanceInput) "Custom Distance Search ▲" else "Custom Distance Search ▼")
                 }
 
-                // Predefined distance preset buttons
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    presetDistances.forEach { preset ->
-                        OutlinedButton(
-                            onClick = {
-                                customMilesInput = preset.toString()
-                                performSpecificMileageSearch(preset.toDouble())
-                            },
+                if (showCustomDistanceInput) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        OutlinedTextField(
+                            value = customMilesInput,
+                            onValueChange = { customMilesInput = it.filter { char -> char.isDigit() } },
+                            label = { Text("Custom Distance (mi)") },
+                            singleLine = true,
                             modifier = Modifier.weight(1f)
+                        )
+
+                        Button(
+                            enabled = customMilesInput.isNotBlank() && !isSearching,
+                            onClick = {
+                                val miles = customMilesInput.toDoubleOrNull()
+                                if (miles != null) {
+                                    performSpecificMileageSearch(miles)
+                                }
+                            }
                         ) {
-                            Text("$preset mi")
+                            Text("🔍 Search")
                         }
                     }
                 }
@@ -185,11 +179,24 @@ fun TruckStopFinderDialog(
                     )
                 }
 
+                if (truckStopsList.isNotEmpty()) {
+                    OutlinedButton(
+                        onClick = {
+                            onSeeOnMap(truckStopsList)
+                            onDismiss()
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary)
+                    ) {
+                        Text("🗺️ See on Map (${truckStopsList.size} Stops)")
+                    }
+                }
+
                 // Dedicated scrolling container for the truck stop list
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .heightIn(max = 350.dp)
+                        .heightIn(max = 300.dp)
                         .verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
@@ -437,22 +444,26 @@ fun calculateStopMileMarkerAndCorridor(
     return Pair(mileMarker, distOffRouteMiles)
 }
 
-fun getPointAtDistance(polyline: List<LatLng>, targetMiles: Double): LatLng? {
-    if (polyline.isEmpty()) return null
-    var accumulatedMeters = 0.0
-    val targetMeters = targetMiles * 1609.34
+val getPointAtDistance: (List<LatLng>, Double) -> LatLng? = { polyline, targetMiles ->
+    if (polyline.isEmpty()) null
+    else {
+        var accumulatedMeters = 0.0
+        val targetMeters = targetMiles * 1609.34
 
-    for (i in 0 until polyline.size - 1) {
-        val p1 = polyline[i]
-        val p2 = polyline[i + 1]
-        val results = FloatArray(1)
-        Location.distanceBetween(p1.latitude, p1.longitude, p2.latitude, p2.longitude, results)
-        val segMeters = results[0].toDouble()
+        var result: LatLng? = polyline.last()
+        for (i in 0 until polyline.size - 1) {
+            val p1 = polyline[i]
+            val p2 = polyline[i + 1]
+            val results = FloatArray(1)
+            Location.distanceBetween(p1.latitude, p1.longitude, p2.latitude, p2.longitude, results)
+            val segMeters = results[0].toDouble()
 
-        if (accumulatedMeters + segMeters >= targetMeters) {
-            return p2
+            if (accumulatedMeters + segMeters >= targetMeters) {
+                result = p2
+                break
+            }
+            accumulatedMeters += segMeters
         }
-        accumulatedMeters += segMeters
+        result
     }
-    return polyline.last()
 }

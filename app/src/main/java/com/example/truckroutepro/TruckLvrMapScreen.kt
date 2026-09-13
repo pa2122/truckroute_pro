@@ -307,7 +307,7 @@ fun TruckLvrMapScreen(
                 isMyLocationEnabled = hasLocationPermission,
                 mapType = if (isSatelliteView) MapType.HYBRID else MapType.NORMAL
             ),
-            uiSettings = MapUiSettings(zoomControlsEnabled = true, myLocationButtonEnabled = true)
+            uiSettings = MapUiSettings(zoomControlsEnabled = true, myLocationButtonEnabled = false)
         ) {
             Marker(
                 state = remember(truckLocation) { MarkerState(position = truckLocation) },
@@ -614,7 +614,7 @@ fun TruckLvrMapScreen(
                             containerColor = MaterialTheme.colorScheme.primaryContainer
                         )
                     ) {
-                        Text("🎯 Recenter")
+                        Text("Recenter")
                     }
                 }
             }
@@ -695,6 +695,10 @@ fun TruckLvrMapScreen(
                 scope.launch {
                     cameraPositionState.animate(CameraUpdateFactory.newLatLngZoom(stopLatLng, 15f))
                 }
+                showTruckStopFinder = false
+            },
+            onSeeOnMap = { stops ->
+                routeTruckStops = stops
                 showTruckStopFinder = false
             },
             onDismiss = { showTruckStopFinder = false }
