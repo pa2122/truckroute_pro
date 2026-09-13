@@ -75,9 +75,9 @@ fun TruckStopFinderDialog(
             truckStopsList = results
             isSearching = false
             statusMessage = if (results.isNotEmpty()) {
-                "Found ${results.size} truck stops along route (sorted by mile marker):"
+                "Found ${results.size} truck stops along route (sorted by true route mile marker):"
             } else {
-                "No truck stops found along this route section."
+                "No truck stops found along this route corridor."
             }
         }
     }
@@ -90,7 +90,7 @@ fun TruckStopFinderDialog(
             truckStopsList = results
             isSearching = false
             statusMessage = if (results.isNotEmpty()) {
-                "Found ${results.size} truck stops around ${targetMiles.toInt()} miles (safe stopping window):"
+                "Found ${results.size} truck stops around ${targetMiles.toInt()} miles:"
             } else {
                 "No truck stops found near ${targetMiles.toInt()} miles. Try searching all truck stops."
             }
@@ -116,7 +116,7 @@ fun TruckStopFinderDialog(
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    "Search all truck stops along your route or choose a target distance below.",
+                    "Search certified truck stops, rest areas, and travel centers along your route corridor.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.secondary
                 )
@@ -259,10 +259,10 @@ suspend fun searchAllTruckStopsAlongRoute(
     if (routePolyline.isEmpty() || apiKey.isBlank()) return@withContext emptyList()
 
     val sampleMilesList = mutableListOf<Double>()
-    var currentMile = 10.0
+    var currentMile = 15.0
     while (currentMile < totalDistanceMiles) {
         sampleMilesList.add(currentMile)
-        currentMile += 25.0
+        currentMile += 30.0
     }
     if (sampleMilesList.isEmpty()) sampleMilesList.add((totalDistanceMiles / 2.0).coerceAtLeast(1.0))
 
@@ -271,7 +271,7 @@ suspend fun searchAllTruckStopsAlongRoute(
 
     for (mile in sampleMilesList) {
         val samplePoint = getPointAtDistance(routePolyline, mile) ?: continue
-        val stopsNear = queryTruckStopsNearLocation(apiKey, samplePoint, mile)
+        val stopsNear = queryTruckStopsNearLocation(apiKey, samplePoint, routePolyline)
         for (s in stopsNear) {
             if (seenNames.add(s.name.lowercase())) {
                 allFound.add(s)
@@ -290,13 +290,13 @@ suspend fun searchTruckStopsNearMile(
     if (routePolyline.isEmpty() || apiKey.isBlank()) return@withContext emptyList()
 
     val samplePoint = getPointAtDistance(routePolyline, targetMiles) ?: routePolyline.last()
-    queryTruckStopsNearLocation(apiKey, samplePoint, targetMiles)
+    queryTruckStopsNearLocation(apiKey, samplePoint, routePolyline)
 }
 
 fun queryTruckStopsNearLocation(
     apiKey: String,
     location: LatLng,
-    baseMile: Double
+    routePolyline: List<LatLng>
 ): List<TruckStopOption> {
     try {
         val lat = location.latitude
@@ -319,7 +319,7 @@ fun queryTruckStopsNearLocation(
                         put("latitude", lat)
                         put("longitude", lng)
                     })
-                    put("radius", 40000.0)
+                    put("radius", 25000.0) // 25km radius corridor
                 })
             })
         }
@@ -330,14 +330,11 @@ fun queryTruckStopsNearLocation(
         }
 
         val responseCode = conn.responseCode
-        Log.d("TruckStopFinder", "Places API (New) Response Code: $responseCode")
-
         val jsonText = if (responseCode == 200) {
             conn.inputStream.bufferedReader().use { it.readText() }
         } else {
             conn.errorStream?.bufferedReader()?.use { it.readText() } ?: ""
         }
-        Log.d("TruckStopFinder", "Places API (New) Response: $jsonText")
 
         if (responseCode == 200 && jsonText.isNotBlank()) {
             val jsonObj = JSONObject(jsonText)
@@ -353,28 +350,76 @@ fun queryTruckStopsNearLocation(
                     val locObj = r.optJSONObject("location")
                     if (locObj != null) {
                         val stopLatLng = LatLng(locObj.getDouble("latitude"), locObj.getDouble("longitude"))
-                        val approxMile = baseMile + (i * 0.8 - 2.0)
-
-                        list.add(
-                            TruckStopOption(
-                                name = name,
-                                address = address,
-                                location = stopLatLng,
-                                mileMarker = approxMile.coerceAtLeast(0.0)
+                        
+                        // Calculate true route mile marker and verify corridor distance
+                        val calcResult = calculateStopMileMarkerAndCorridor(stopLatLng, routePolyline)
+                        if (calcResult != null) {
+                            val (trueMileMarker, _) = calcResult
+                            list.add(
+                                TruckStopOption(
+                                    name = name,
+                                    address = address,
+                                    location = stopLatLng,
+                                    mileMarker = trueMileMarker
+                                )
                             )
-                        )
+                        }
                     }
                 }
-                Log.d("TruckStopFinder", "Found ${list.size} truck stops via Places API (New).")
                 return list
             }
         }
     } catch (e: Exception) {
-        Log.e("TruckStopFinder", "Exception querying Places API (New)", e)
         e.printStackTrace()
     }
 
     return emptyList()
+}
+
+fun calculateStopMileMarkerAndCorridor(
+    stopLatLng: LatLng,
+    polyline: List<LatLng>
+): Pair<Double, Double>? {
+    if (polyline.isEmpty()) return null
+    var minDistMeters = Double.MAX_VALUE
+    var bestCumulativeMeters = 0.0
+    var currentCumulativeMeters = 0.0
+
+    for (i in 0 until polyline.size - 1) {
+        val p1 = polyline[i]
+        val p2 = polyline[i + 1]
+
+        val segResults = FloatArray(1)
+        Location.distanceBetween(p1.latitude, p1.longitude, p2.latitude, p2.longitude, segResults)
+        val segLenMeters = segResults[0].toDouble()
+
+        val p1Results = FloatArray(1)
+        Location.distanceBetween(p1.latitude, p1.longitude, stopLatLng.latitude, stopLatLng.longitude, p1Results)
+        val distToP1 = p1Results[0].toDouble()
+
+        if (distToP1 < minDistMeters) {
+            minDistMeters = distToP1
+            bestCumulativeMeters = currentCumulativeMeters
+        }
+
+        currentCumulativeMeters += segLenMeters
+    }
+
+    val lastPoint = polyline.last()
+    val lastResults = FloatArray(1)
+    Location.distanceBetween(lastPoint.latitude, lastPoint.longitude, stopLatLng.latitude, stopLatLng.longitude, lastResults)
+    if (lastResults[0].toDouble() < minDistMeters) {
+        minDistMeters = lastResults[0].toDouble()
+        bestCumulativeMeters = currentCumulativeMeters
+    }
+
+    val distOffRouteMiles = minDistMeters / 1609.34
+    val mileMarker = bestCumulativeMeters / 1609.34
+
+    // Filter out stops more than 10 miles off the route corridor
+    if (distOffRouteMiles > 10.0) return null
+
+    return Pair(mileMarker, distOffRouteMiles)
 }
 
 fun getPointAtDistance(polyline: List<LatLng>, targetMiles: Double): LatLng? {
