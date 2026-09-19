@@ -65,33 +65,33 @@ fun TruckStopFinderDialog(
     var showCustomDistanceInput by remember { mutableStateOf(false) }
     var customMilesInput by remember { mutableStateOf("") }
 
-    fun performInitialSearch() {
+    fun perform50MileRouteSearch() {
         isSearching = true
-        statusMessage = "Searching truck stops within 25 miles..."
+        statusMessage = "Searching truck stops within the next 50 miles along route..."
         scope.launch {
-            val center = routePolyline.firstOrNull() ?: LatLng(32.3553, -96.1089)
-            val results = queryTruckStopsNearLocation(apiKey, center, routePolyline, 40000.0) // 25 mile radius (40km)
-            truckStopsList = results
-            isSearching = false
-            statusMessage = if (results.isNotEmpty()) {
-                "Found ${results.size} truck stops within 25 miles:"
-            } else {
-                "No truck stops found within 25 miles. Try searching a custom distance."
-            }
-        }
-    }
+            val maxSearchMiles = totalDistanceMiles.coerceAtMost(50.0).coerceAtLeast(10.0)
+            val sampleMilesList = listOf(5.0, 20.0, 35.0, 50.0).filter { it <= maxSearchMiles }
+            val effectiveSamples = if (sampleMilesList.isEmpty()) listOf((totalDistanceMiles / 2.0).coerceAtMost(25.0)) else sampleMilesList
 
-    fun performAllTruckStopsSearch() {
-        isSearching = true
-        statusMessage = "Searching all truck stops along route (${totalDistanceMiles.toInt()} mi)..."
-        scope.launch {
-            val results = searchAllTruckStopsAlongRoute(apiKey, routePolyline, totalDistanceMiles)
-            truckStopsList = results
+            val allFound = mutableListOf<TruckStopOption>()
+            val seenNames = mutableSetOf<String>()
+
+            for (mile in effectiveSamples) {
+                val samplePoint = getPointAtDistance(routePolyline, mile) ?: routePolyline.firstOrNull() ?: LatLng(32.3553, -96.1089)
+                val stopsNear = queryTruckStopsNearLocation(apiKey, samplePoint, routePolyline, 40000.0)
+                for (s in stopsNear) {
+                    if (s.mileMarker <= 50.0 && seenNames.add(s.name.lowercase())) {
+                        allFound.add(s)
+                    }
+                }
+            }
+
+            truckStopsList = allFound.sortedBy { it.mileMarker }
             isSearching = false
-            statusMessage = if (results.isNotEmpty()) {
-                "Found ${results.size} truck stops along route:"
+            statusMessage = if (truckStopsList.isNotEmpty()) {
+                "Found ${truckStopsList.size} truck stops in the next 50 miles:"
             } else {
-                "No truck stops found along this route corridor."
+                "No truck stops found in the next 50 miles. Try searching custom distance."
             }
         }
     }
@@ -113,10 +113,10 @@ fun TruckStopFinderDialog(
 
     LaunchedEffect(Unit) {
         if (preloadedStops.isNotEmpty()) {
-            truckStopsList = preloadedStops
-            statusMessage = "Found ${preloadedStops.size} truck stops:"
+            truckStopsList = preloadedStops.filter { it.mileMarker <= 50.0 }
+            statusMessage = "Found ${truckStopsList.size} truck stops in the next 50 miles:"
         } else {
-            performInitialSearch()
+            perform50MileRouteSearch()
         }
     }
 
@@ -130,7 +130,7 @@ fun TruckStopFinderDialog(
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    "Search certified truck stops, rest areas, and travel centers within 25 miles or along route.",
+                    "Certified truck stops, rest areas, and travel centers within the next 50 miles of your route.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.secondary
                 )
@@ -141,20 +141,6 @@ fun TruckStopFinderDialog(
                 modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                OutlinedButton(
-                    onClick = { performInitialSearch() },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("Search Within 25 Miles")
-                }
-
-                OutlinedButton(
-                    onClick = { performAllTruckStopsSearch() },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("Show All Truck Stops Along Route")
-                }
-
                 // Collapsible Custom Mileage Text Box
                 OutlinedButton(
                     onClick = { showCustomDistanceInput = !showCustomDistanceInput },
@@ -463,7 +449,7 @@ fun calculateStopMileMarkerAndCorridor(
     val distOffRouteMiles = minDistMeters / 1609.34
     val mileMarker = bestCumulativeMeters / 1609.34
 
-    if (distOffRouteMiles > 15.0) return null
+    if (distOffRouteMiles > 10.0) return null
 
     return Pair(mileMarker, distOffRouteMiles)
 }
