@@ -178,6 +178,10 @@ fun TruckLvrMapScreen(
         }
     }
 
+    fun isEmulatorGoogleplex(lat: Double, lng: Double): Boolean {
+        return Math.abs(lat - 37.422) < 0.1 && Math.abs(lng - (-122.084)) < 0.1
+    }
+
     fun triggerGpsUpdate() {
         if (!hasLocationPermission) {
             Toast.makeText(context, "Location permission required", Toast.LENGTH_SHORT).show()
@@ -187,6 +191,9 @@ fun TruckLvrMapScreen(
             fusedLocationClient.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, null)
                 .addOnSuccessListener { loc ->
                     if (loc != null) {
+                        if (isEmulatorGoogleplex(loc.latitude, loc.longitude)) {
+                            return@addOnSuccessListener
+                        }
                         val realLocation = LatLng(loc.latitude, loc.longitude)
                         truckLocation = realLocation
                         currentSpeedMph = (loc.speed * 2.23694f).toInt()
@@ -231,6 +238,9 @@ fun TruckLvrMapScreen(
                 val locationCallback = object : LocationCallback() {
                     override fun onLocationResult(result: LocationResult) {
                         val last = result.lastLocation ?: return
+                        if (isEmulatorGoogleplex(last.latitude, last.longitude)) {
+                            return
+                        }
                         val updated = LatLng(last.latitude, last.longitude)
                         truckLocation = updated
                         currentSpeedMph = (last.speed * 2.23694f).toInt()
