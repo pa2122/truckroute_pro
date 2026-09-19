@@ -217,7 +217,7 @@ fun TruckLvrMapScreen(
                         .weight(1f)
                         .padding(horizontal = 8.dp)
                 ) {
-                    Text(if (destinationAddressText.isNotBlank()) "📍 $destinationAddressText" else "🔍 Search Destination", maxLines = 1, fontWeight = FontWeight.Bold)
+                    Text(if (destinationAddressText.isNotBlank()) destinationAddressText else "Search Destination", maxLines = 1, fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -264,7 +264,7 @@ fun TruckLvrMapScreen(
                             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                             modifier = Modifier.weight(1f)
                         ) {
-                            Text(if (isNavigating) "⏸️ Overview" else "▶️ Start Trip", fontWeight = FontWeight.Bold)
+                            Text(if (isNavigating) "Overview" else "Start Trip", fontWeight = FontWeight.Bold)
                         }
                     }
                 }
