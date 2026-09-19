@@ -8,14 +8,16 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -113,74 +115,76 @@ fun TruckLvrMapScreen(
                 .padding(bottom = 24.dp, end = 16.dp)
         ) {
             // Zoom In (+)
-            Surface(
-                color = MaterialTheme.colorScheme.surface,
-                shape = RoundedCornerShape(8.dp),
-                shadowElevation = 4.dp
-            ) {
-                OutlinedButton(
-                    onClick = {
-                        scope.launch {
-                            cameraPositionState.animate(CameraUpdateFactory.zoomIn())
-                        }
+            Button(
+                onClick = {
+                    scope.launch {
+                        cameraPositionState.animate(CameraUpdateFactory.zoomIn())
                     }
-                ) {
-                    Text("+", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                }
+                },
+                shape = CircleShape,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    contentColor = MaterialTheme.colorScheme.onSurface
+                ),
+                elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp),
+                modifier = Modifier.size(48.dp),
+                contentPadding = PaddingValues(0.dp)
+            ) {
+                Text("+", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             }
 
             // Zoom Out (-)
-            Surface(
-                color = MaterialTheme.colorScheme.surface,
-                shape = RoundedCornerShape(8.dp),
-                shadowElevation = 4.dp
-            ) {
-                OutlinedButton(
-                    onClick = {
-                        scope.launch {
-                            cameraPositionState.animate(CameraUpdateFactory.zoomOut())
-                        }
+            Button(
+                onClick = {
+                    scope.launch {
+                        cameraPositionState.animate(CameraUpdateFactory.zoomOut())
                     }
-                ) {
-                    Text("-", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                }
+                },
+                shape = CircleShape,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    contentColor = MaterialTheme.colorScheme.onSurface
+                ),
+                elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp),
+                modifier = Modifier.size(48.dp),
+                contentPadding = PaddingValues(0.dp)
+            ) {
+                Text("-", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             }
 
             // My Location / Recenter Button
-            Surface(
-                color = MaterialTheme.colorScheme.primaryContainer,
-                shape = RoundedCornerShape(8.dp),
-                shadowElevation = 4.dp
-            ) {
-                OutlinedButton(
-                    onClick = {
-                        if (hasLocationPermission) {
-                            try {
-                                fusedLocationClient.lastLocation.addOnSuccessListener { loc ->
-                                    if (loc != null) {
-                                        val currentLatLng = LatLng(loc.latitude, loc.longitude)
-                                        scope.launch {
-                                            cameraPositionState.animate(CameraUpdateFactory.newLatLngZoom(currentLatLng, 15f))
-                                        }
-                                    } else {
-                                        scope.launch {
-                                            cameraPositionState.animate(CameraUpdateFactory.newLatLngZoom(mabankLatLng, 15f))
-                                        }
+            Button(
+                onClick = {
+                    if (hasLocationPermission) {
+                        try {
+                            fusedLocationClient.lastLocation.addOnSuccessListener { loc ->
+                                if (loc != null) {
+                                    val currentLatLng = LatLng(loc.latitude, loc.longitude)
+                                    scope.launch {
+                                        cameraPositionState.animate(CameraUpdateFactory.newLatLngZoom(currentLatLng, 15f))
+                                    }
+                                } else {
+                                    scope.launch {
+                                        cameraPositionState.animate(CameraUpdateFactory.newLatLngZoom(mabankLatLng, 15f))
                                     }
                                 }
-                            } catch (e: SecurityException) {
-                                e.printStackTrace()
                             }
-                        } else {
-                            Toast.makeText(context, "Location permission required", Toast.LENGTH_SHORT).show()
+                        } catch (e: SecurityException) {
+                            e.printStackTrace()
                         }
-                    },
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer
-                    )
-                ) {
-                    Text("Recenter")
-                }
+                    } else {
+                        Toast.makeText(context, "Location permission required", Toast.LENGTH_SHORT).show()
+                    }
+                },
+                shape = RoundedCornerShape(24.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                ),
+                elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp)
+            ) {
+                Text("Recenter", fontWeight = FontWeight.Bold)
             }
         }
     }
