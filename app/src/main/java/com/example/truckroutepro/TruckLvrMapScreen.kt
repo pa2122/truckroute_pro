@@ -25,6 +25,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -32,7 +33,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
@@ -104,6 +107,10 @@ fun TruckLvrMapScreen(
     var routeResult by remember { mutableStateOf<TruckRouteResult?>(null) }
     var showAddressDialog by remember { mutableStateOf(false) }
     var isNavigating by remember { mutableStateOf(false) }
+    var bottomHudHeightPx by remember { mutableIntStateOf(0) }
+
+    val density = LocalDensity.current
+    val bottomHudHeightDp = with(density) { bottomHudHeightPx.toDp() }
 
     fun fitRouteInCamera(points: List<LatLng>, paddingPx: Int = 120) {
         if (points.isEmpty()) return
@@ -233,6 +240,7 @@ fun TruckLvrMapScreen(
                     .fillMaxWidth()
                     .padding(12.dp)
                     .align(Alignment.BottomCenter)
+                    .onSizeChanged { bottomHudHeightPx = it.height }
             ) {
                 Column(
                     modifier = Modifier.padding(14.dp),
@@ -277,7 +285,7 @@ fun TruckLvrMapScreen(
             verticalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier
                 .align(Alignment.BottomEnd)
-                .padding(bottom = if (res != null) 110.dp else 24.dp, end = 16.dp)
+                .padding(bottom = bottomHudHeightDp + 16.dp, end = 16.dp)
         ) {
             // Zoom In (+)
             Button(
