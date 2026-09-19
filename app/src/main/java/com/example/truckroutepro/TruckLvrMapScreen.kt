@@ -20,8 +20,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -105,7 +107,11 @@ fun TruckLvrMapScreen(
     var destinationAddressText by remember { mutableStateOf("") }
     var routePolyline by remember { mutableStateOf<List<LatLng>>(emptyList()) }
     var routeResult by remember { mutableStateOf<TruckRouteResult?>(null) }
+    var routeTruckStops by remember { mutableStateOf<List<TruckStopOption>>(emptyList()) }
+    var selectedStopLocation by remember { mutableStateOf<LatLng?>(null) }
     var showAddressDialog by remember { mutableStateOf(false) }
+    var showTruckStopFinder by remember { mutableStateOf(false) }
+    var isBottomHudExpanded by remember { mutableStateOf(false) }
     var isNavigating by remember { mutableStateOf(false) }
     var bottomHudHeightPx by remember { mutableIntStateOf(0) }
 
@@ -149,6 +155,13 @@ fun TruckLvrMapScreen(
             routeResult = result
             routePolyline = result.polylinePoints
             fitRouteInCamera(result.polylinePoints)
+
+            val stops = searchAllTruckStopsAlongRoute(
+                apiKey = "AIzaSyAcscUaSZ1EGCuTGb81kgLD4ul92DXpn5E",
+                routePolyline = result.polylinePoints,
+                totalDistanceMiles = result.distanceMiles
+            )
+            routeTruckStops = stops
         }
     }
 
@@ -174,8 +187,28 @@ fun TruckLvrMapScreen(
             if (dest != null) {
                 Marker(
                     state = remember(dest) { MarkerState(position = dest) },
-                    title = "📍 Destination",
+                    title = "Destination",
                     snippet = destinationAddressText
+                )
+            }
+
+            val currentRes = routeResult
+            if (currentRes != null && currentRes.waypoints.isNotEmpty()) {
+                currentRes.waypoints.forEachIndexed { index, wp ->
+                    val addr = currentRes.waypointAddresses.getOrNull(index) ?: "Stop ${index + 1}"
+                    Marker(
+                        state = remember(wp) { MarkerState(position = wp) },
+                        title = "Stop ${index + 1}",
+                        snippet = addr
+                    )
+                }
+            }
+
+            val selStop = selectedStopLocation
+            if (selStop != null) {
+                Marker(
+                    state = remember(selStop) { MarkerState(position = selStop) },
+                    title = "Selected Stop Location"
                 )
             }
 
@@ -213,7 +246,7 @@ fun TruckLvrMapScreen(
                     contentPadding = PaddingValues(10.dp),
                     modifier = Modifier.size(44.dp)
                 ) {
-                    Text("☰", fontWeight = FontWeight.Bold)
+                    Text("Menu", fontWeight = FontWeight.Bold)
                 }
 
                 Button(
@@ -229,7 +262,7 @@ fun TruckLvrMapScreen(
             }
         }
 
-        // 🔽 Bottom HUD Route Summary & Start Nav (Clean Design)
+        // 🔽 Bottom HUD Route Summary & Expandable Options (Clean Design)
         val res = routeResult
         if (res != null) {
             Surface(
@@ -252,11 +285,41 @@ fun TruckLvrMapScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            "🛣️ ${String.format(Locale.US, "%.1f", res.distanceMiles)} mi • ETA: ${res.durationMins / 60}h ${res.durationMins % 60}m",
+                            "${String.format(Locale.US, "%.1f", res.distanceMiles)} mi • ETA: ${res.durationMins / 60}h ${res.durationMins % 60}m",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.primary
                         )
+
+                        TextButton(onClick = { isBottomHudExpanded = !isBottomHudExpanded }) {
+                            Text(if (isBottomHudExpanded) "Less" else "Options", fontWeight = FontWeight.Bold)
+                        }
+                    }
+
+                    if (isBottomHudExpanded) {
+                        OutlinedButton(
+                            onClick = { showTruckStopFinder = true },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(20.dp)
+                        ) {
+                            Text("Find Truck Stop / Rest Area")
+                        }
+
+                        OutlinedButton(
+                            onClick = { showAddressDialog = true },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(20.dp)
+                        ) {
+                            Text("Add Address Stop")
+                        }
+
+                        if (res.waypointAddresses.isNotEmpty()) {
+                            Text(
+                                "Waypoints: ${res.waypointAddresses.joinToString(", ")}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.secondary
+                            )
+                        }
                     }
 
                     Row(
@@ -366,11 +429,51 @@ fun TruckLvrMapScreen(
         ManualAddressDialog(
             initialOrigin = "Current GPS Location",
             initialDestination = destinationAddressText,
-            onRouteCalculated = { _, originLatLng, destText, destLatLng ->
-                calculateRoute(destLatLng, destText, originLatLng)
+            onMultiStopRouteCalculated = { _, originLatLng, destText, destLatLng, waypoints, waypointAddresses ->
+                calculateRoute(destLatLng, destText, originLatLng, waypoints, waypointAddresses)
                 showAddressDialog = false
             },
             onDismiss = { showAddressDialog = false }
+        )
+    }
+
+    if (showTruckStopFinder) {
+        val activePolyline = routePolyline
+        val activeDist = routeResult?.distanceMiles ?: 100.0
+        TruckStopFinderDialog(
+            apiKey = "AIzaSyAcscUaSZ1EGCuTGb81kgLD4ul92DXpn5E",
+            routePolyline = activePolyline,
+            totalDistanceMiles = activeDist,
+            preloadedStops = routeTruckStops,
+            onTruckStopAdded = { stopLatLng, stopAddress ->
+                val currentRes = routeResult
+                val existingWaypoints = currentRes?.waypoints?.toMutableList() ?: mutableListOf()
+                val existingAddresses = currentRes?.waypointAddresses?.toMutableList() ?: mutableListOf()
+
+                existingWaypoints.add(stopLatLng)
+                existingAddresses.add(stopAddress)
+
+                calculateRoute(
+                    destLatLng = destinationLatLng ?: stopLatLng,
+                    destText = destinationAddressText,
+                    customOrigin = null,
+                    waypoints = existingWaypoints,
+                    waypointAddresses = existingAddresses
+                )
+                showTruckStopFinder = false
+            },
+            onShowLocation = { stopLatLng ->
+                selectedStopLocation = stopLatLng
+                scope.launch {
+                    cameraPositionState.animate(CameraUpdateFactory.newLatLngZoom(stopLatLng, 15f))
+                }
+                showTruckStopFinder = false
+            },
+            onSeeOnMap = { stops ->
+                routeTruckStops = stops
+                showTruckStopFinder = false
+            },
+            onDismiss = { showTruckStopFinder = false }
         )
     }
 }
