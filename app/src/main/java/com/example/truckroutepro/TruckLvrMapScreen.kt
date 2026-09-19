@@ -2,6 +2,7 @@ package com.example.truckroutepro
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.location.Geocoder
 import android.os.Looper
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -100,25 +101,7 @@ fun TruckLvrMapScreen(
         )
     }
 
-    val permissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestMultiplePermissions()
-    ) { permissions ->
-        hasLocationPermission = permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
-                permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true
-    }
-
-    LaunchedEffect(Unit) {
-        if (!hasLocationPermission) {
-            permissionLauncher.launch(
-                arrayOf(
-                    Manifest.permission.ACCESS_FINE_LOCATION,
-                    Manifest.permission.ACCESS_COARSE_LOCATION
-                )
-            )
-        }
-    }
-
-    var truckLocation by remember { mutableStateOf(LatLng(39.8283, -98.5795)) }
+    var truckLocation by remember { mutableStateOf(LatLng(32.3553, -96.1089)) }
     var truckHeading by remember { mutableFloatStateOf(0f) }
     var hasCenteredMap by remember { mutableStateOf(false) }
     var routeResult by remember { mutableStateOf<TruckRouteResult?>(null) }
@@ -139,6 +122,36 @@ fun TruckLvrMapScreen(
         position = CameraPosition.fromLatLngZoom(truckLocation, 12f)
     }
 
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        hasLocationPermission = permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
+                permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true
+    }
+
+    LaunchedEffect(Unit) {
+        if (!hasLocationPermission) {
+            permissionLauncher.launch(
+                arrayOf(
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+                    Manifest.permission.ACCESS_COARSE_LOCATION
+                )
+            )
+        }
+        try {
+            val geocoder = Geocoder(context, Locale.US)
+            @Suppress("DEPRECATION")
+            val addresses = geocoder.getFromLocationName("18907 County Road 4001 Mabank, TX 75147", 1)
+            if (!addresses.isNullOrEmpty()) {
+                val addr = addresses[0]
+                val latLng = LatLng(addr.latitude, addr.longitude)
+                truckLocation = latLng
+                cameraPositionState.position = CameraPosition.fromLatLngZoom(latLng, 14f)
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
     val fusedLocationClient = remember { LocationServices.getFusedLocationProviderClient(context) }
 
     fun updateCameraOrientation(location: LatLng, heading: Float, distMiles: Double, force: Boolean = false) {
