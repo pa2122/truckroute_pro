@@ -1,7 +1,6 @@
 package com.example.truckroutepro
 
 import android.location.Location
-import android.util.Log
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -111,7 +110,7 @@ fun TruckStopFinderDialog(
         title = {
             Column {
                 Text(
-                    "🚛 Add Truck Stop / Rest Area",
+                    "Add Truck Stop / Rest Area",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
                 )
@@ -131,7 +130,7 @@ fun TruckStopFinderDialog(
                     onClick = { performAllTruckStopsSearch() },
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text("🛣️ Show All Truck Stops Along Route")
+                    Text("Show All Truck Stops Along Route")
                 }
 
                 // Collapsible Custom Mileage Text Box
@@ -165,7 +164,7 @@ fun TruckStopFinderDialog(
                                 }
                             }
                         ) {
-                            Text("🔍 Search")
+                            Text("Search")
                         }
                     }
                 }
@@ -188,7 +187,7 @@ fun TruckStopFinderDialog(
                         modifier = Modifier.fillMaxWidth(),
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary)
                     ) {
-                        Text("🗺️ See on Map (${truckStopsList.size} Stops)")
+                        Text("See on Map (${truckStopsList.size} Stops)")
                     }
                 }
 
@@ -222,7 +221,7 @@ fun TruckStopFinderDialog(
                                         modifier = Modifier.weight(1f)
                                     )
                                     Text(
-                                        "📍 Mile ${String.format(Locale.US, "%.1f", stop.mileMarker)}",
+                                        "Mile ${String.format(Locale.US, "%.1f", stop.mileMarker)}",
                                         style = MaterialTheme.typography.labelMedium,
                                         fontWeight = FontWeight.ExtraBold,
                                         color = MaterialTheme.colorScheme.primary
@@ -248,7 +247,7 @@ fun TruckStopFinderDialog(
                                         },
                                         modifier = Modifier.weight(1f)
                                     ) {
-                                        Text("📍 Show Location")
+                                        Text("Show Location")
                                     }
 
                                     Button(
@@ -258,7 +257,7 @@ fun TruckStopFinderDialog(
                                         },
                                         modifier = Modifier.weight(1f)
                                     ) {
-                                        Text("➕ Add Stop")
+                                        Text("Add Stop")
                                     }
                                 }
                             }
