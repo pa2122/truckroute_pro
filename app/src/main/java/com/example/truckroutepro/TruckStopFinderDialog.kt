@@ -39,6 +39,7 @@ import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
 import java.util.Locale
+import kotlin.math.abs
 
 data class TruckStopOption(
     val name: String,
@@ -70,7 +71,7 @@ fun TruckStopFinderDialog(
         statusMessage = "Searching truck stops within the next 50 miles along route..."
         scope.launch {
             val maxSearchMiles = totalDistanceMiles.coerceAtMost(50.0).coerceAtLeast(10.0)
-            val sampleMilesList = listOf(5.0, 20.0, 35.0, 50.0).filter { it <= maxSearchMiles }
+            val sampleMilesList = listOf(5.0, 15.0, 30.0, 45.0, 50.0).filter { it <= maxSearchMiles }
             val effectiveSamples = if (sampleMilesList.isEmpty()) listOf((totalDistanceMiles / 2.0).coerceAtMost(25.0)) else sampleMilesList
 
             val allFound = mutableListOf<TruckStopOption>()
@@ -78,9 +79,19 @@ fun TruckStopFinderDialog(
 
             for (mile in effectiveSamples) {
                 val samplePoint = getPointAtDistance(routePolyline, mile) ?: routePolyline.firstOrNull() ?: LatLng(32.3553, -96.1089)
-                val stopsNear = queryTruckStopsNearLocation(apiKey, samplePoint, routePolyline, 40000.0)
+                val stopsNear = queryTruckStopsNearLocation(apiKey, samplePoint, routePolyline, 50000.0)
                 for (s in stopsNear) {
                     if (s.mileMarker <= 50.0 && seenNames.add(s.name.lowercase())) {
+                        allFound.add(s)
+                    }
+                }
+            }
+
+            if (allFound.isEmpty() && totalDistanceMiles > 50.0) {
+                val fallbackPoint = getPointAtDistance(routePolyline, 25.0) ?: routePolyline.firstOrNull() ?: LatLng(32.3553, -96.1089)
+                val fallbackStops = queryTruckStopsNearLocation(apiKey, fallbackPoint, routePolyline, 60000.0)
+                for (s in fallbackStops) {
+                    if (s.mileMarker <= 65.0 && seenNames.add(s.name.lowercase())) {
                         allFound.add(s)
                     }
                 }
@@ -91,7 +102,7 @@ fun TruckStopFinderDialog(
             statusMessage = if (truckStopsList.isNotEmpty()) {
                 "Found ${truckStopsList.size} truck stops in the next 50 miles:"
             } else {
-                "No truck stops found in the next 50 miles. Try searching custom distance."
+                "No truck stops found in the next 50 miles along this route."
             }
         }
     }
@@ -100,11 +111,17 @@ fun TruckStopFinderDialog(
         isSearching = true
         statusMessage = "Searching truck stops near ${targetMiles.toInt()} miles..."
         scope.launch {
-            val results = searchTruckStopsNearMile(apiKey, routePolyline, targetMiles)
-            truckStopsList = results
+            val samplePoint = getPointAtDistance(routePolyline, targetMiles) ?: routePolyline.last()
+            val rawResults = queryTruckStopsNearLocation(apiKey, samplePoint, routePolyline, 35000.0)
+
+            val filtered = rawResults.filter { s ->
+                s.mileMarker >= (targetMiles - 15.0).coerceAtLeast(0.0) && s.mileMarker <= (targetMiles + 10.0)
+            }.sortedBy { abs(it.mileMarker - targetMiles) }
+
+            truckStopsList = if (filtered.isNotEmpty()) filtered else rawResults.sortedBy { abs(it.mileMarker - targetMiles) }.take(5)
             isSearching = false
-            statusMessage = if (results.isNotEmpty()) {
-                "Found ${results.size} truck stops around ${targetMiles.toInt()} miles:"
+            statusMessage = if (truckStopsList.isNotEmpty()) {
+                "Found ${truckStopsList.size} truck stops near ${targetMiles.toInt()} miles:"
             } else {
                 "No truck stops found near ${targetMiles.toInt()} miles."
             }
