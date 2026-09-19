@@ -136,25 +136,25 @@ fun TruckRouteProApp() {
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column {
-                            Text("🚛 TruckRoute Pro", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                            Text("TruckRoute Pro", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                             Text("Commercial LVR Navigation", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.secondary)
                         }
                         Button(
                             onClick = { scope.launch { drawerState.close() } }
                         ) {
-                            Text("⬅️ Close")
+                            Text("Close")
                         }
                     }
 
                     HorizontalDivider()
 
-                    // 🗺️ Navigation Section Dropdown
+                    // Navigation Section Dropdown
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("🗺️ Navigation & Routes", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                        Text("Navigation & Routes", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
                         TextButton(onClick = { navigationSectionExpanded = !navigationSectionExpanded }) {
                             Text(if (navigationSectionExpanded) "▼" else "▶")
                         }
@@ -162,7 +162,7 @@ fun TruckRouteProApp() {
 
                     if (navigationSectionExpanded) {
                         NavigationDrawerItem(
-                            label = { Text("🗺️ Open LVR Truck Map & GPS") },
+                            label = { Text("Open LVR Truck Map & GPS") },
                             selected = currentScreen == "map",
                             onClick = {
                                 currentScreen = "map"
@@ -171,7 +171,7 @@ fun TruckRouteProApp() {
                         )
 
                         NavigationDrawerItem(
-                            label = { Text("📍 Manual Address Entry") },
+                            label = { Text("Manual Address Entry") },
                             selected = false,
                             onClick = {
                                 showAddressDialog = true
@@ -182,13 +182,13 @@ fun TruckRouteProApp() {
 
                     HorizontalDivider()
 
-                    // ⚙️ Vehicle Profiles Section Dropdown
+                    // Vehicle Profiles Section Dropdown
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("⚙️ Vehicle Configurations", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                        Text("Vehicle Configurations", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
                         TextButton(onClick = { vehicleSectionExpanded = !vehicleSectionExpanded }) {
                             Text(if (vehicleSectionExpanded) "▼" else "▶")
                         }
@@ -238,7 +238,7 @@ fun TruckRouteProApp() {
                                 },
                                 modifier = Modifier.weight(1f)
                             ) {
-                                Text("⚙️ Edit")
+                                Text("Edit")
                             }
                             Button(
                                 onClick = {
@@ -248,15 +248,15 @@ fun TruckRouteProApp() {
                                 },
                                 modifier = Modifier.weight(1f)
                             ) {
-                                Text("➕ New Setup")
+                                Text("New Setup")
                             }
                         }
                     }
 
                     HorizontalDivider()
 
-                    // 🧭 Map Controls Section
-                    Text("🧭 Map Orientation Mode", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                    // Map Controls Section
+                    Text("Map Orientation Mode", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
 
                     ExposedDropdownMenuBox(
                         expanded = orientationDropdownExpanded,
@@ -264,9 +264,9 @@ fun TruckRouteProApp() {
                     ) {
                         OutlinedTextField(
                             value = when (selectedOrientationMode) {
-                                "NORTH_UP" -> "🧭 North-Up Always"
-                                "HEADING_UP" -> "⬆️ Driving Direction Up Always"
-                                else -> "🧠 Smart Auto (North > 20mi, Driving ≤ 20mi)"
+                                "NORTH_UP" -> "North-Up Always"
+                                "HEADING_UP" -> "Driving Direction Up Always"
+                                else -> "Smart Auto (North > 20mi, Driving ≤ 20mi)"
                             },
                             onValueChange = {},
                             readOnly = true,
@@ -281,21 +281,21 @@ fun TruckRouteProApp() {
                             onDismissRequest = { orientationDropdownExpanded = false }
                         ) {
                             DropdownMenuItem(
-                                text = { Text("🧠 Smart Auto-Switch (North > 20mi, Driving ≤ 20mi)") },
+                                text = { Text("Smart Auto-Switch (North > 20mi, Driving ≤ 20mi)") },
                                 onClick = {
                                     selectedOrientationMode = "SMART_AUTO"
                                     orientationDropdownExpanded = false
                                 }
                             )
                             DropdownMenuItem(
-                                text = { Text("🧭 North-Up Always") },
+                                text = { Text("North-Up Always") },
                                 onClick = {
                                     selectedOrientationMode = "NORTH_UP"
                                     orientationDropdownExpanded = false
                                 }
                             )
                             DropdownMenuItem(
-                                text = { Text("⬆️ Driving Direction Up Always") },
+                                text = { Text("Driving Direction Up Always") },
                                 onClick = {
                                     selectedOrientationMode = "HEADING_UP"
                                     orientationDropdownExpanded = false
@@ -336,9 +336,9 @@ fun TruckRouteProApp() {
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             OutlinedButton(onClick = { scope.launch { drawerState.open() } }) {
-                                Text("☰ Navigation Menu")
+                                Text("Navigation Menu")
                             }
-                            Text("🚛 TruckRoute Pro", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                            Text("TruckRoute Pro", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                         }
 
                         Text(
@@ -350,13 +350,13 @@ fun TruckRouteProApp() {
 
                         Spacer(modifier = Modifier.height(4.dp))
 
-                        // 🚛 Profile Switcher Card
+                        // Profile Switcher Card
                         Card(
                             modifier = Modifier.fillMaxWidth(),
                             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
                         ) {
                             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                                Text("🚛 Active Vehicle Profile", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                                Text("Active Vehicle Profile", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
 
                                 ExposedDropdownMenuBox(
                                     expanded = profileDropdownExpanded,
@@ -400,7 +400,7 @@ fun TruckRouteProApp() {
                                         },
                                         modifier = Modifier.weight(1f)
                                     ) {
-                                        Text("⚙️ Edit Profile")
+                                        Text("Edit Profile")
                                     }
                                     Button(
                                         onClick = {
@@ -409,7 +409,7 @@ fun TruckRouteProApp() {
                                         },
                                         modifier = Modifier.weight(1f)
                                     ) {
-                                        Text("➕ New Profile")
+                                        Text("New Profile")
                                     }
                                 }
 
@@ -420,7 +420,7 @@ fun TruckRouteProApp() {
                                     Text("• Vehicle Type: ${activeProfile.trailerType}", style = MaterialTheme.typography.bodySmall)
                                     Text("• Axles: ${activeProfile.axleCount} Axles", style = MaterialTheme.typography.bodySmall)
                                     Text("• Governed Speed: ${activeProfile.maxSpeedMph} MPH", style = MaterialTheme.typography.bodySmall)
-                                    Text("• Hazmat: ${if (activeProfile.isHazmat) "Class 1-9 Active ⚠️" else "Non-Hazmat Standard"}", style = MaterialTheme.typography.bodySmall)
+                                    Text("• Hazmat: ${if (activeProfile.isHazmat) "Class 1-9 Active" else "Non-Hazmat Standard"}", style = MaterialTheme.typography.bodySmall)
                                 }
                             }
                         }
@@ -430,7 +430,7 @@ fun TruckRouteProApp() {
                             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
                         ) {
                             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Text("🗺️ Large Vehicle Routing Engine", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                                Text("Large Vehicle Routing Engine", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                                 Text("Routes calculated avoiding low bridges (<${activeProfile.formattedHeight}), weight-restricted roads (<${activeProfile.weightLbs.toInt()} lbs), and non-truck parkways.", style = MaterialTheme.typography.bodySmall)
                             }
                         }
@@ -441,7 +441,7 @@ fun TruckRouteProApp() {
                             onClick = { currentScreen = "map" },
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Text("🧭 Open LVR Truck Map & GPS (${activeProfile.profileName})")
+                            Text("Open LVR Truck Map & GPS (${activeProfile.profileName})")
                         }
                     }
                 }
