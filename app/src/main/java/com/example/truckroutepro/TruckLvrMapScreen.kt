@@ -77,9 +77,10 @@ fun TruckLvrMapScreen(
                 isMyLocationEnabled = hasLocationPermission
             ),
             uiSettings = MapUiSettings(
-                zoomControlsEnabled = true,
-                compassEnabled = true,
-                myLocationButtonEnabled = true
+                zoomControlsEnabled = false,
+                compassEnabled = false,
+                myLocationButtonEnabled = false,
+                mapToolbarEnabled = false
             )
         )
     }
