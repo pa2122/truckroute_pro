@@ -2,6 +2,7 @@ package com.example.truckroutepro
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -29,6 +30,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import com.google.android.gms.location.LocationServices
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
@@ -80,6 +82,8 @@ fun TruckLvrMapScreen(
     val cameraPositionState = rememberCameraPositionState {
         position = CameraPosition.fromLatLngZoom(mabankLatLng, 15f)
     }
+
+    val fusedLocationClient = remember { LocationServices.getFusedLocationProviderClient(context) }
 
     Box(
         modifier = Modifier
@@ -150,8 +154,25 @@ fun TruckLvrMapScreen(
             ) {
                 OutlinedButton(
                     onClick = {
-                        scope.launch {
-                            cameraPositionState.animate(CameraUpdateFactory.newLatLngZoom(mabankLatLng, 15f))
+                        if (hasLocationPermission) {
+                            try {
+                                fusedLocationClient.lastLocation.addOnSuccessListener { loc ->
+                                    if (loc != null) {
+                                        val currentLatLng = LatLng(loc.latitude, loc.longitude)
+                                        scope.launch {
+                                            cameraPositionState.animate(CameraUpdateFactory.newLatLngZoom(currentLatLng, 15f))
+                                        }
+                                    } else {
+                                        scope.launch {
+                                            cameraPositionState.animate(CameraUpdateFactory.newLatLngZoom(mabankLatLng, 15f))
+                                        }
+                                    }
+                                }
+                            } catch (e: SecurityException) {
+                                e.printStackTrace()
+                            }
+                        } else {
+                            Toast.makeText(context, "Location permission required", Toast.LENGTH_SHORT).show()
                         }
                     },
                     colors = ButtonDefaults.outlinedButtonColors(
