@@ -1,6 +1,7 @@
 package com.example.truckroutepro
 
 import android.location.Location
+import android.util.Log
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -82,16 +83,6 @@ fun TruckStopFinderDialog(
                 val stopsNear = queryTruckStopsNearLocation(apiKey, samplePoint, routePolyline, 50000.0)
                 for (s in stopsNear) {
                     if (s.mileMarker <= 50.0 && seenNames.add(s.name.lowercase())) {
-                        allFound.add(s)
-                    }
-                }
-            }
-
-            if (allFound.isEmpty() && totalDistanceMiles > 50.0) {
-                val fallbackPoint = getPointAtDistance(routePolyline, 25.0) ?: routePolyline.firstOrNull() ?: LatLng(32.3553, -96.1089)
-                val fallbackStops = queryTruckStopsNearLocation(apiKey, fallbackPoint, routePolyline, 60000.0)
-                for (s in fallbackStops) {
-                    if (s.mileMarker <= 65.0 && seenNames.add(s.name.lowercase())) {
                         allFound.add(s)
                     }
                 }
@@ -350,6 +341,7 @@ fun queryTruckStopsNearLocation(
     try {
         val lat = location.latitude
         val lng = location.longitude
+        Log.d("TruckStopFinder", "Querying Places API (New) at lat=$lat, lng=$lng, radius=$radiusMeters")
         val url = URL("https://places.googleapis.com/v1/places:searchText")
         val conn = url.openConnection() as HttpURLConnection
         conn.requestMethod = "POST"
@@ -379,16 +371,20 @@ fun queryTruckStopsNearLocation(
         }
 
         val responseCode = conn.responseCode
+        Log.d("TruckStopFinder", "HTTP Response Code: $responseCode")
+
         val jsonText = if (responseCode == 200) {
             conn.inputStream.bufferedReader().use { it.readText() }
         } else {
             conn.errorStream?.bufferedReader()?.use { it.readText() } ?: ""
         }
+        Log.d("TruckStopFinder", "API Response JSON: $jsonText")
 
         if (responseCode == 200 && jsonText.isNotBlank()) {
             val jsonObj = JSONObject(jsonText)
             if (jsonObj.has("places")) {
                 val results = jsonObj.getJSONArray("places")
+                Log.d("TruckStopFinder", "Found ${results.length()} raw places from API")
                 val list = mutableListOf<TruckStopOption>()
 
                 for (i in 0 until results.length()) {
@@ -411,13 +407,19 @@ fun queryTruckStopsNearLocation(
                                     mileMarker = trueMileMarker
                                 )
                             )
+                        } else {
+                            Log.d("TruckStopFinder", "Place '$name' rejected by corridor filter (>10 miles off route)")
                         }
                     }
                 }
+                Log.d("TruckStopFinder", "Parsed ${list.size} valid truck stops within corridor")
                 return list
+            } else {
+                Log.d("TruckStopFinder", "JSON object has no 'places' key")
             }
         }
     } catch (e: Exception) {
+        Log.e("TruckStopFinder", "Exception querying places", e)
         e.printStackTrace()
     }
 
