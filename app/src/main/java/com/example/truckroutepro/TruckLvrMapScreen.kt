@@ -36,6 +36,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.Button
@@ -261,6 +262,8 @@ fun TruckLvrMapScreen(
     var currentOriginText by remember { mutableStateOf("Current GPS Location") }
     var routePolyline by remember { mutableStateOf<List<LatLng>>(emptyList()) }
     var routeResult by remember { mutableStateOf<TruckRouteResult?>(null) }
+    var activeAlternativeRoutes by remember { mutableStateOf<List<TruckRouteResult>>(emptyList()) }
+    var longPressedLatLng by remember { mutableStateOf<LatLng?>(null) }
     var routeTruckStops by remember { mutableStateOf<List<TruckStopOption>>(emptyList()) }
     var selectedStopLocation by remember { mutableStateOf<LatLng?>(null) }
     var selectedStopOption by remember { mutableStateOf<TruckStopOption?>(null) }
@@ -433,6 +436,7 @@ fun TruckLvrMapScreen(
             )
             routeResult = result
             routePolyline = result.polylinePoints
+            activeAlternativeRoutes = result.alternativeRoutes
             fitRouteInCamera(result.polylinePoints)
 
             val stops = searchAllTruckStopsAlongRoute(
@@ -462,30 +466,18 @@ fun TruckLvrMapScreen(
                 mapToolbarEnabled = false
             ),
             onMapLongClick = { latLng ->
-                if (routeResult != null) {
-                    val currentRes = routeResult
-                    val existingWaypoints = currentRes?.waypoints?.toMutableList() ?: mutableListOf()
-                    val existingAddresses = currentRes?.waypointAddresses?.toMutableList() ?: mutableListOf()
-
-                    val forcedLabel = "Via Waypoint (${String.format(Locale.US, "%.3f, %.3f", latLng.latitude, latLng.longitude)})"
-                    existingWaypoints.add(latLng)
-                    existingAddresses.add(forcedLabel)
-
-                    Toast.makeText(context, "Forcing route via selected road...", Toast.LENGTH_SHORT).show()
-
-                    calculateRoute(
-                        destLatLng = destinationLatLng ?: latLng,
-                        destText = destinationAddressText,
-                        customOrigin = currentOriginLatLng,
-                        originText = currentOriginText,
-                        waypoints = existingWaypoints,
-                        waypointAddresses = existingAddresses
-                    )
-                } else {
-                    Toast.makeText(context, "Search a destination first to force a route", Toast.LENGTH_SHORT).show()
-                }
+                longPressedLatLng = latLng
             }
         ) {
+            val longPressPoint = longPressedLatLng
+            if (longPressPoint != null) {
+                Marker(
+                    state = remember(longPressPoint) { MarkerState(position = longPressPoint) },
+                    title = "Selected Road Location",
+                    snippet = "Tap 'Route Through Here' card below to force route"
+                )
+            }
+
             val dest = destinationLatLng
             if (dest != null) {
                 Marker(
@@ -533,9 +525,9 @@ fun TruckLvrMapScreen(
                 )
             }
 
-            val currentRouteRes = routeResult
-            if (currentRouteRes != null && currentRouteRes.alternativeRoutes.size > 1) {
-                currentRouteRes.alternativeRoutes.forEach { alt ->
+            val displayAlts = if (activeAlternativeRoutes.size > 1) activeAlternativeRoutes else (routeResult?.alternativeRoutes ?: emptyList())
+            if (displayAlts.size > 1) {
+                displayAlts.forEach { alt ->
                     if (alt.polylinePoints != routePolyline && alt.polylinePoints.isNotEmpty()) {
                         Polyline(
                             points = alt.polylinePoints,
@@ -1037,7 +1029,8 @@ fun TruckLvrMapScreen(
                         }
                     } else {
                         // Alternative Route Selection Chips
-                        if (res.alternativeRoutes.size > 1) {
+                        val displayAlternatives = if (activeAlternativeRoutes.size > 1) activeAlternativeRoutes else res.alternativeRoutes
+                        if (displayAlternatives.size > 1) {
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -1045,7 +1038,7 @@ fun TruckLvrMapScreen(
                                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                res.alternativeRoutes.forEach { altRoute ->
+                                displayAlternatives.forEach { altRoute ->
                                     val isSelected = (altRoute.polylinePoints == routePolyline)
                                     FilterChip(
                                         selected = isSelected,
@@ -1384,6 +1377,91 @@ fun TruckLvrMapScreen(
                             modifier = Modifier.weight(1f)
                         ) {
                             Text("Add Stop")
+                        }
+                    }
+                }
+            }
+        }
+
+        // Long-Press "Route Through Here" Floating Action Card
+        val activeLongPressPoint = longPressedLatLng
+        if (activeLongPressPoint != null) {
+            Surface(
+                color = MaterialTheme.colorScheme.surface,
+                shape = RoundedCornerShape(16.dp),
+                shadowElevation = 10.dp,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp)
+                    .align(Alignment.BottomCenter)
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                "Selected Road Location",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            Text(
+                                "GPS: ${String.format(Locale.US, "%.4f, %.4f", activeLongPressPoint.latitude, activeLongPressPoint.longitude)}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.secondary
+                            )
+                        }
+
+                        IconButton(onClick = { longPressedLatLng = null }) {
+                            Icon(Icons.Default.Close, contentDescription = "Close")
+                        }
+                    }
+
+                    HorizontalDivider()
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = { longPressedLatLng = null },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("Cancel")
+                        }
+
+                        Button(
+                            onClick = {
+                                val currentRes = routeResult
+                                val existingWaypoints = currentRes?.waypoints?.toMutableList() ?: mutableListOf()
+                                val existingAddresses = currentRes?.waypointAddresses?.toMutableList() ?: mutableListOf()
+
+                                val forcedLabel = "Via Road Waypoint (${String.format(Locale.US, "%.3f, %.3f", activeLongPressPoint.latitude, activeLongPressPoint.longitude)})"
+                                existingWaypoints.add(activeLongPressPoint)
+                                existingAddresses.add(forcedLabel)
+
+                                Toast.makeText(context, "Routing through selected road...", Toast.LENGTH_SHORT).show()
+
+                                calculateRoute(
+                                    destLatLng = destinationLatLng ?: activeLongPressPoint,
+                                    destText = destinationAddressText,
+                                    customOrigin = currentOriginLatLng,
+                                    originText = currentOriginText,
+                                    waypoints = existingWaypoints,
+                                    waypointAddresses = existingAddresses
+                                )
+                                longPressedLatLng = null
+                            },
+                            modifier = Modifier.weight(1f),
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                        ) {
+                            Text("Route Through Here", fontWeight = FontWeight.Bold)
                         }
                     }
                 }
