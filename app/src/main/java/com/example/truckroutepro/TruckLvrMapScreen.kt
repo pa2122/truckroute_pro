@@ -44,6 +44,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -221,6 +222,7 @@ fun TruckLvrMapScreen(
     var specificSearchResults by remember { mutableStateOf<List<TruckStopOption>>(emptyList()) }
     var searchJob by remember { mutableStateOf<Job?>(null) }
     var isNavigating by remember { mutableStateOf(false) }
+    var activeStepIndex by remember { mutableIntStateOf(0) }
     var bottomHudHeightPx by remember { mutableIntStateOf(0) }
 
     val density = LocalDensity.current
@@ -462,44 +464,152 @@ fun TruckLvrMapScreen(
             }
         }
 
-        // Sleek Compact Top Bar (Clean Design)
-        Surface(
-            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
-            shape = RoundedCornerShape(16.dp),
-            shadowElevation = 6.dp,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp)
-                .align(Alignment.TopCenter)
-        ) {
-            Row(
-                modifier = Modifier.padding(8.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Button(
-                    onClick = onOpenDrawer,
-                    shape = CircleShape,
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surfaceVariant, contentColor = MaterialTheme.colorScheme.onSurfaceVariant),
-                    contentPadding = PaddingValues(0.dp),
-                    modifier = Modifier.size(44.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Menu,
-                        contentDescription = "Open Sidebar",
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
+        // Top Navigation Header: Green Turn-by-Turn Banner during Active Trip, or Search Bar
+        val activeNavRes = routeResult
+        if (isNavigating && activeNavRes != null && activeNavRes.navSteps.isNotEmpty()) {
+            val activeStep = activeNavRes.navSteps.getOrNull(activeStepIndex.coerceIn(0, activeNavRes.navSteps.size - 1))
+            val nextStep = activeNavRes.navSteps.getOrNull(activeStepIndex + 1)
 
-                Button(
-                    onClick = { showAddressDialog = true },
-                    shape = RoundedCornerShape(22.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primaryContainer, contentColor = MaterialTheme.colorScheme.onPrimaryContainer),
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(horizontal = 8.dp)
+            Surface(
+                color = Color(0xFF0F9D58),
+                shape = RoundedCornerShape(bottomStart = 20.dp, bottomEnd = 20.dp),
+                shadowElevation = 8.dp,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .align(Alignment.TopCenter)
+            ) {
+                Column(
+                    modifier = Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Text(if (destinationAddressText.isNotBlank()) destinationAddressText else "Search Destination", maxLines = 1, fontWeight = FontWeight.Bold)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Surface(
+                            shape = CircleShape,
+                            color = Color.White.copy(alpha = 0.25f),
+                            modifier = Modifier.size(48.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Text(
+                                    when (activeStep?.maneuverIcon) {
+                                        "Right" -> "➔"
+                                        "Left" -> "⬅"
+                                        "U-Turn" -> "🔄"
+                                        else -> "⬆"
+                                    },
+                                    style = MaterialTheme.typography.titleLarge,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = Color.White
+                                )
+                            }
+                        }
+
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                activeStep?.distanceText ?: "0 mi",
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = Color.White
+                            )
+                            Text(
+                                activeStep?.instruction ?: "Proceed on route",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White,
+                                maxLines = 2
+                            )
+                        }
+
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            if (activeStepIndex > 0) {
+                                IconButton(
+                                    onClick = {
+                                        activeStepIndex--
+                                        val prevStepObj = activeNavRes.navSteps.getOrNull(activeStepIndex)
+                                        if (prevStepObj != null) {
+                                            scope.launch {
+                                                cameraPositionState.animate(CameraUpdateFactory.newLatLngZoom(prevStepObj.startLatLng, 16f))
+                                            }
+                                        }
+                                    }
+                                ) {
+                                    Text("‹", style = MaterialTheme.typography.headlineLarge, color = Color.White, fontWeight = FontWeight.Bold)
+                                }
+                            }
+
+                            if (activeStepIndex < activeNavRes.navSteps.size - 1) {
+                                IconButton(
+                                    onClick = {
+                                        activeStepIndex++
+                                        val nextStepObj = activeNavRes.navSteps.getOrNull(activeStepIndex)
+                                        if (nextStepObj != null) {
+                                            scope.launch {
+                                                cameraPositionState.animate(CameraUpdateFactory.newLatLngZoom(nextStepObj.startLatLng, 16f))
+                                            }
+                                        }
+                                    }
+                                ) {
+                                    Text("›", style = MaterialTheme.typography.headlineLarge, color = Color.White, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
+                    }
+
+                    if (nextStep != null) {
+                        HorizontalDivider(color = Color.White.copy(alpha = 0.35f))
+                        Text(
+                            "Then ${nextStep.distanceText}: ${nextStep.instruction}",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White.copy(alpha = 0.95f),
+                            maxLines = 1
+                        )
+                    }
+                }
+            }
+        } else {
+            // Sleek Compact Top Bar (Clean Design)
+            Surface(
+                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
+                shape = RoundedCornerShape(16.dp),
+                shadowElevation = 6.dp,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(12.dp)
+                    .align(Alignment.TopCenter)
+            ) {
+                Row(
+                    modifier = Modifier.padding(8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Button(
+                        onClick = onOpenDrawer,
+                        shape = CircleShape,
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surfaceVariant, contentColor = MaterialTheme.colorScheme.onSurfaceVariant),
+                        contentPadding = PaddingValues(0.dp),
+                        modifier = Modifier.size(44.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Menu,
+                            contentDescription = "Open Sidebar",
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+
+                    Button(
+                        onClick = { showAddressDialog = true },
+                        shape = RoundedCornerShape(22.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primaryContainer, contentColor = MaterialTheme.colorScheme.onPrimaryContainer),
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(horizontal = 8.dp)
+                    ) {
+                        Text(if (destinationAddressText.isNotBlank()) destinationAddressText else "Search Destination", maxLines = 1, fontWeight = FontWeight.Bold)
+                    }
                 }
             }
         }
