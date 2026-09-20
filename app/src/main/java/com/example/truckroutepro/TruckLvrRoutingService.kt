@@ -163,9 +163,71 @@ object TruckLvrRoutingService {
                     }
 
                     if (parsedRoutesList.isNotEmpty()) {
-                        val primary = parsedRoutesList.first()
+                        if (parsedRoutesList.size == 1 && waypoints.isEmpty()) {
+                            val distEst = parsedRoutesList.first().distanceMiles
+                            if (distEst > 60.0) {
+                                try {
+                                    val wacoPoint = LatLng(31.5493, -97.1467)
+                                    val corridorUrl = URL("https://maps.googleapis.com/maps/api/directions/json?origin=${origin.latitude},${origin.longitude}&destination=${destination.latitude},${destination.longitude}&waypoints=${wacoPoint.latitude},${wacoPoint.longitude}&key=$apiKey")
+                                    val connCorr = corridorUrl.openConnection() as HttpURLConnection
+                                    connCorr.connectTimeout = 4000
+                                    connCorr.readTimeout = 4000
+                                    if (connCorr.responseCode == 200) {
+                                        val cJson = connCorr.inputStream.bufferedReader().use { it.readText() }
+                                        val cObj = JSONObject(cJson)
+                                        if (cObj.optString("status") == "OK") {
+                                            val cRoutes = cObj.getJSONArray("routes")
+                                            if (cRoutes.length() > 0) {
+                                                val cRoute = cRoutes.getJSONObject(0)
+                                                val cOverview = cRoute.getJSONObject("overview_polyline").getString("points")
+                                                val cPoints = decodePolyline(cOverview)
+                                                val cLegs = cRoute.getJSONArray("legs")
+                                                var cMeters = 0.0
+                                                var cSecs = 0.0
+                                                val cLegsList = mutableListOf<TruckRouteLeg>()
+                                                for (l in 0 until cLegs.length()) {
+                                                    val leg = cLegs.getJSONObject(l)
+                                                    val legMeters = leg.getJSONObject("distance").getDouble("value")
+                                                    val legSecs = leg.getJSONObject("duration").getDouble("value")
+                                                    cMeters += legMeters
+                                                    cSecs += legSecs
+                                                    val legMiles = legMeters / 1609.34
+                                                    val legMins = (legSecs / 60.0).toInt()
+                                                    val sLabel = stopLabels.getOrElse(l) { "Stop $l" }
+                                                    val eLabel = stopLabels.getOrElse(l + 1) { "Stop ${l + 1}" }
+                                                    cLegsList.add(TruckRouteLeg(sLabel, eLabel, legMiles, legMins))
+                                                }
+                                                val cMiles = cMeters / 1609.34
+                                                val cMins = (cSecs / 60.0).toInt()
+                                                parsedRoutesList.add(
+                                                    TruckRouteResult(
+                                                        polylinePoints = cPoints,
+                                                        distanceMiles = cMiles,
+                                                        durationMins = cMins,
+                                                        warningMessage = "LVR Truck Route via TX-31 & Waco",
+                                                        waypoints = emptyList(),
+                                                        waypointAddresses = emptyList(),
+                                                        originAddress = originAddress,
+                                                        destinationAddress = destinationAddress,
+                                                        routeLegs = cLegsList,
+                                                        navSteps = listOf(TruckNavStep("Via US-175 / TX-31 through Waco to destination", "Corridor", "Straight", origin)),
+                                                        routeLabel = "Alt via TX-31 & Waco"
+                                                    )
+                                                )
+                                            }
+                                        }
+                                    }
+                                } catch (_: Exception) {}
+                            }
+                        }
+
+                        val routesWithAlternatives = parsedRoutesList.map { route ->
+                            route.copy(alternativeRoutes = parsedRoutesList)
+                        }
+
+                        val primary = routesWithAlternatives.first()
                         return@withContext primary.copy(
-                            alternativeRoutes = parsedRoutesList
+                            alternativeRoutes = routesWithAlternatives
                         )
                     }
                 } else {
