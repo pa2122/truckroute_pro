@@ -55,7 +55,7 @@ object TruckLvrRoutingService {
             val waypointsParam = if (waypoints.isNotEmpty()) {
                 "&waypoints=" + waypoints.joinToString("|") { "${it.latitude},${it.longitude}" }
             } else ""
-            val url = URL("https://maps.googleapis.com/maps/api/directions/json?origin=${origin.latitude},${origin.longitude}&destination=${destination.latitude},${destination.longitude}$waypointsParam&key=$apiKey")
+            val url = URL("https://maps.googleapis.com/maps/api/directions/json?origin=${origin.latitude},${origin.longitude}&destination=${destination.latitude},${destination.longitude}$waypointsParam&alternatives=true&key=$apiKey")
             val conn = url.openConnection() as HttpURLConnection
             conn.requestMethod = "GET"
             conn.connectTimeout = 8000
@@ -69,8 +69,12 @@ object TruckLvrRoutingService {
 
                 if (status == "OK") {
                     val routes = jsonObj.getJSONArray("routes")
-                    if (routes.length() > 0) {
-                        val route = routes.getJSONObject(0)
+                    val parsedRoutesList = mutableListOf<TruckRouteResult>()
+
+                    for (r in 0 until minOf(routes.length(), 3)) {
+                        val route = routes.getJSONObject(r)
+                        val summary = route.optString("summary", "")
+                        val routeLabel = if (r == 0) "Fastest" else if (summary.isNotBlank()) "Alt via $summary" else "Alt Route ${r + 1}"
 
                         val legs = route.getJSONArray("legs")
                         var totalMeters = 0.0
@@ -141,17 +145,27 @@ object TruckLvrRoutingService {
                         val stopMsg = if (waypoints.isNotEmpty()) " (${waypoints.size} Stops)" else ""
                         val warningMsg = "LVR Truck Safe Route Verified$stopMsg: Clears ${profile.formattedHeight} | Max ${profile.weightLbs.toInt()} lbs | Governed $truckSpeedMph MPH"
 
-                        return@withContext TruckRouteResult(
-                            polylinePoints = points,
-                            distanceMiles = distanceMiles,
-                            durationMins = durationMins,
-                            warningMessage = warningMsg,
-                            waypoints = waypoints,
-                            waypointAddresses = waypointAddresses,
-                            originAddress = originAddress,
-                            destinationAddress = destinationAddress,
-                            routeLegs = routeLegsList,
-                            navSteps = stepsList
+                        parsedRoutesList.add(
+                            TruckRouteResult(
+                                polylinePoints = points,
+                                distanceMiles = distanceMiles,
+                                durationMins = durationMins,
+                                warningMessage = warningMsg,
+                                waypoints = waypoints,
+                                waypointAddresses = waypointAddresses,
+                                originAddress = originAddress,
+                                destinationAddress = destinationAddress,
+                                routeLegs = routeLegsList,
+                                navSteps = stepsList,
+                                routeLabel = routeLabel
+                            )
+                        )
+                    }
+
+                    if (parsedRoutesList.isNotEmpty()) {
+                        val primary = parsedRoutesList.first()
+                        return@withContext primary.copy(
+                            alternativeRoutes = parsedRoutesList
                         )
                     }
                 } else {
@@ -310,5 +324,7 @@ data class TruckRouteResult(
     val originAddress: String = "Origin",
     val destinationAddress: String = "Destination",
     val routeLegs: List<TruckRouteLeg> = emptyList(),
-    val navSteps: List<TruckNavStep> = emptyList()
+    val navSteps: List<TruckNavStep> = emptyList(),
+    val alternativeRoutes: List<TruckRouteResult> = emptyList(),
+    val routeLabel: String = "Fastest"
 )

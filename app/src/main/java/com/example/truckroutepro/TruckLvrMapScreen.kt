@@ -43,6 +43,8 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -505,6 +507,33 @@ fun TruckLvrMapScreen(
                         true
                     }
                 )
+            }
+
+            val currentRouteRes = routeResult
+            if (currentRouteRes != null && currentRouteRes.alternativeRoutes.size > 1) {
+                currentRouteRes.alternativeRoutes.forEach { alt ->
+                    if (alt.polylinePoints != routePolyline && alt.polylinePoints.isNotEmpty()) {
+                        Polyline(
+                            points = alt.polylinePoints,
+                            color = Color(0xFF90A4AE),
+                            width = 10f,
+                            clickable = true,
+                            onClick = {
+                                routeResult = alt
+                                routePolyline = alt.polylinePoints
+                                fitRouteInCamera(alt.polylinePoints)
+                                scope.launch {
+                                    val stops = searchAllTruckStopsAlongRoute(
+                                        apiKey = "AIzaSyAcscUaSZ1EGCuTGb81kgLD4ul92DXpn5E",
+                                        routePolyline = alt.polylinePoints,
+                                        totalDistanceMiles = alt.distanceMiles
+                                    )
+                                    routeTruckStops = stops
+                                }
+                            }
+                        )
+                    }
+                }
             }
 
             if (routePolyline.isNotEmpty()) {
@@ -983,6 +1012,56 @@ fun TruckLvrMapScreen(
                             }
                         }
                     } else {
+                        // Alternative Route Selection Chips
+                        if (res.alternativeRoutes.size > 1) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .horizontalScroll(rememberScrollState()),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                res.alternativeRoutes.forEach { altRoute ->
+                                    val isSelected = (altRoute.polylinePoints == routePolyline)
+                                    FilterChip(
+                                        selected = isSelected,
+                                        onClick = {
+                                            routeResult = altRoute
+                                            routePolyline = altRoute.polylinePoints
+                                            fitRouteInCamera(altRoute.polylinePoints)
+                                            scope.launch {
+                                                val stops = searchAllTruckStopsAlongRoute(
+                                                    apiKey = "AIzaSyAcscUaSZ1EGCuTGb81kgLD4ul92DXpn5E",
+                                                    routePolyline = altRoute.polylinePoints,
+                                                    totalDistanceMiles = altRoute.distanceMiles
+                                                )
+                                                routeTruckStops = stops
+                                            }
+                                        },
+                                        label = {
+                                            Column {
+                                                Text(
+                                                    altRoute.routeLabel,
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    fontWeight = FontWeight.Bold
+                                                )
+                                                Text(
+                                                    "${String.format(Locale.US, "%.1f", altRoute.distanceMiles)} mi • ${formatDurationMins(altRoute.durationMins)}",
+                                                    style = MaterialTheme.typography.labelSmall
+                                                )
+                                            }
+                                        },
+                                        colors = FilterChipDefaults.filterChipColors(
+                                            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                            selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
+                                        )
+                                    )
+                                }
+                            }
+
+                            HorizontalDivider()
+                        }
+
                         // Standard Route Summary & Itinerary View
                         Row(
                             modifier = Modifier.fillMaxWidth(),
