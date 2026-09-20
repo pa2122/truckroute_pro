@@ -621,25 +621,55 @@ fun TruckLvrMapScreen(
                 }
             }
         } else {
-            // Floating Hamburger Menu Button (Top-Left)
+            // Sleek Compact Top Bar (Clean Design with Address Bar & Hamburger Icon)
             Surface(
                 color = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
-                shape = CircleShape,
+                shape = RoundedCornerShape(16.dp),
                 shadowElevation = 6.dp,
                 modifier = Modifier
+                    .fillMaxWidth()
                     .padding(12.dp)
-                    .align(Alignment.TopStart)
+                    .align(Alignment.TopCenter)
             ) {
-                IconButton(
-                    onClick = onOpenDrawer,
-                    modifier = Modifier.size(48.dp)
+                Row(
+                    modifier = Modifier.padding(8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Menu,
-                        contentDescription = "Open Sidebar",
-                        modifier = Modifier.size(26.dp),
-                        tint = MaterialTheme.colorScheme.onSurface
-                    )
+                    Button(
+                        onClick = onOpenDrawer,
+                        shape = CircleShape,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                            contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                        ),
+                        contentPadding = PaddingValues(0.dp),
+                        modifier = Modifier.size(44.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Menu,
+                            contentDescription = "Open Sidebar",
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+
+                    Button(
+                        onClick = { showAddressDialog = true },
+                        shape = RoundedCornerShape(22.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                        ),
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(horizontal = 8.dp)
+                    ) {
+                        Text(
+                            if (destinationAddressText.isNotBlank()) destinationAddressText else "Search Destination",
+                            maxLines = 1,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
             }
         }
