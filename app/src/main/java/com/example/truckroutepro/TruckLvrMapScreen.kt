@@ -67,8 +67,13 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import android.os.Looper
 import androidx.core.content.ContextCompat
+import com.google.android.gms.location.LocationCallback
+import com.google.android.gms.location.LocationRequest
+import com.google.android.gms.location.LocationResult
 import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.Priority
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.model.BitmapDescriptor
 import com.google.android.gms.maps.model.BitmapDescriptorFactory
@@ -184,17 +189,6 @@ fun TruckLvrMapScreen(
                 permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true
     }
 
-    LaunchedEffect(Unit) {
-        if (!hasLocationPermission) {
-            permissionLauncher.launch(
-                arrayOf(
-                    Manifest.permission.ACCESS_FINE_LOCATION,
-                    Manifest.permission.ACCESS_COARSE_LOCATION
-                )
-            )
-        }
-    }
-
     // Mabank, TX base location
     val mabankLatLng = LatLng(32.3553, -96.1089)
     val cameraPositionState = rememberCameraPositionState {
@@ -202,9 +196,54 @@ fun TruckLvrMapScreen(
     }
 
     val fusedLocationClient = remember { LocationServices.getFusedLocationProviderClient(context) }
+    var userCurrentLocation by remember { mutableStateOf<LatLng?>(null) }
 
     var destinationLatLng by remember { mutableStateOf<LatLng?>(null) }
     var destinationAddressText by remember { mutableStateOf("") }
+
+    LaunchedEffect(hasLocationPermission) {
+        if (!hasLocationPermission) {
+            permissionLauncher.launch(
+                arrayOf(
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+                    Manifest.permission.ACCESS_COARSE_LOCATION
+                )
+            )
+        } else {
+            try {
+                fusedLocationClient.getCurrentLocation(
+                    Priority.PRIORITY_HIGH_ACCURACY,
+                    null
+                ).addOnSuccessListener { loc ->
+                    if (loc != null) {
+                        val currentLatLng = LatLng(loc.latitude, loc.longitude)
+                        userCurrentLocation = currentLatLng
+                        if (destinationLatLng == null) {
+                            cameraPositionState.position = CameraPosition.fromLatLngZoom(currentLatLng, 15f)
+                        }
+                    }
+                }
+
+                val locationRequest = LocationRequest.Builder(
+                    Priority.PRIORITY_HIGH_ACCURACY,
+                    4000L
+                ).setMinUpdateIntervalMillis(1500L).build()
+
+                val locationCallback = object : LocationCallback() {
+                    override fun onLocationResult(result: LocationResult) {
+                        val lastLoc = result.lastLocation
+                        if (lastLoc != null) {
+                            userCurrentLocation = LatLng(lastLoc.latitude, lastLoc.longitude)
+                        }
+                    }
+                }
+
+                fusedLocationClient.requestLocationUpdates(locationRequest, locationCallback, Looper.getMainLooper())
+            } catch (e: SecurityException) {
+                e.printStackTrace()
+            }
+        }
+    }
     var routePolyline by remember { mutableStateOf<List<LatLng>>(emptyList()) }
     var routeResult by remember { mutableStateOf<TruckRouteResult?>(null) }
     var routeTruckStops by remember { mutableStateOf<List<TruckStopOption>>(emptyList()) }
@@ -359,7 +398,7 @@ fun TruckLvrMapScreen(
         waypoints: List<LatLng> = emptyList(),
         waypointAddresses: List<String> = emptyList()
     ) {
-        val startPoint = customOrigin ?: mabankLatLng
+        val startPoint = customOrigin ?: userCurrentLocation ?: mabankLatLng
         destinationLatLng = destLatLng
         destinationAddressText = destText
 
@@ -1212,17 +1251,19 @@ fun TruckLvrMapScreen(
             // My Location / Recenter Button
             Button(
                 onClick = {
-                    if (hasLocationPermission) {
+                    val currentGps = userCurrentLocation
+                    if (currentGps != null) {
+                        scope.launch {
+                            cameraPositionState.animate(CameraUpdateFactory.newLatLngZoom(currentGps, 15f))
+                        }
+                    } else if (hasLocationPermission) {
                         try {
                             fusedLocationClient.lastLocation.addOnSuccessListener { loc ->
                                 if (loc != null) {
                                     val currentLatLng = LatLng(loc.latitude, loc.longitude)
+                                    userCurrentLocation = currentLatLng
                                     scope.launch {
                                         cameraPositionState.animate(CameraUpdateFactory.newLatLngZoom(currentLatLng, 15f))
-                                    }
-                                } else {
-                                    scope.launch {
-                                        cameraPositionState.animate(CameraUpdateFactory.newLatLngZoom(mabankLatLng, 15f))
                                     }
                                 }
                             }
