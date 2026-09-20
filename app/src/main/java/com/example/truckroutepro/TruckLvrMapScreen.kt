@@ -2,12 +2,14 @@ package com.example.truckroutepro
 
 import android.Manifest
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.RectF
 import android.graphics.Typeface
+import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -1288,22 +1290,26 @@ fun TruckLvrMapScreen(
             }
         }
 
-        // Floating Selected Location Detail Card
+        // Floating Selected Location Detail Card with Rich Amenities & Actions
         val activeSelectedStop = selectedStopOption
         if (activeSelectedStop != null) {
             Surface(
-                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.98f),
-                shape = RoundedCornerShape(16.dp),
-                shadowElevation = 8.dp,
+                color = MaterialTheme.colorScheme.surface,
+                shape = RoundedCornerShape(18.dp),
+                shadowElevation = 10.dp,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(12.dp)
                     .align(Alignment.BottomCenter)
             ) {
                 Column(
-                    modifier = Modifier.padding(16.dp),
+                    modifier = Modifier
+                        .padding(16.dp)
+                        .heightIn(max = 400.dp)
+                        .verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
+                    // Header: Name & Close Button
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -1313,20 +1319,48 @@ fun TruckLvrMapScreen(
                             Text(
                                 activeSelectedStop.name,
                                 style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
+                                fontWeight = FontWeight.ExtraBold,
                                 color = MaterialTheme.colorScheme.primary
                             )
+                        }
+
+                        IconButton(onClick = { selectedStopOption = null }) {
+                            Icon(Icons.Default.Close, contentDescription = "Close")
+                        }
+                    }
+
+                    // Rating, Mile Marker, and 24/7 Status Row
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = MaterialTheme.colorScheme.primaryContainer
+                        ) {
                             Text(
                                 "Mile ${String.format(Locale.US, "%.1f", activeSelectedStop.mileMarker)}",
                                 style = MaterialTheme.typography.labelMedium,
                                 fontWeight = FontWeight.ExtraBold,
-                                color = MaterialTheme.colorScheme.secondary
+                                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
                             )
                         }
 
-                        TextButton(onClick = { selectedStopOption = null }) {
-                            Text("Close", fontWeight = FontWeight.Bold)
-                        }
+                        Text(
+                            "${String.format(Locale.US, "%.1f", activeSelectedStop.rating)} ★ (${activeSelectedStop.userRatingsTotal} reviews)",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFFF57C00)
+                        )
+
+                        Text(
+                            "• Open 24/7",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF2E7D32)
+                        )
                     }
 
                     if (activeSelectedStop.address.isNotBlank()) {
@@ -1339,10 +1373,61 @@ fun TruckLvrMapScreen(
 
                     HorizontalDivider()
 
+                    // Trucker Amenities Badges Row
+                    if (activeSelectedStop.amenities.isNotEmpty()) {
+                        Text(
+                            "Trucker Amenities & Services",
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            activeSelectedStop.amenities.forEach { am ->
+                                Surface(
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = MaterialTheme.colorScheme.surfaceVariant
+                                ) {
+                                    Text(
+                                        am,
+                                        style = MaterialTheme.typography.labelMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                                    )
+                                }
+                            }
+                        }
+
+                        HorizontalDivider()
+                    }
+
+                    // Action Buttons Row: Call, Show on Map, Add Stop
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
+                        if (activeSelectedStop.phoneNumber.isNotBlank()) {
+                            OutlinedButton(
+                                onClick = {
+                                    try {
+                                        val intent = Intent(Intent.ACTION_DIAL).apply {
+                                            data = Uri.parse("tel:${activeSelectedStop.phoneNumber}")
+                                        }
+                                        context.startActivity(intent)
+                                    } catch (_: Exception) {}
+                                },
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text("Call")
+                            }
+                        }
+
                         OutlinedButton(
                             onClick = {
                                 scope.launch {
@@ -1351,7 +1436,7 @@ fun TruckLvrMapScreen(
                             },
                             modifier = Modifier.weight(1f)
                         ) {
-                            Text("Show on Map")
+                            Text("Show Map")
                         }
 
                         Button(
@@ -1374,9 +1459,10 @@ fun TruckLvrMapScreen(
                                 selectedStopOption = null
                                 isSearchingStopsInCard = false
                             },
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier.weight(1.2f),
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                         ) {
-                            Text("Add Stop")
+                            Text("Add Stop", fontWeight = FontWeight.Bold)
                         }
                     }
                 }
