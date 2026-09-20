@@ -6,6 +6,7 @@ import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
+import kotlin.math.abs
 
 object TruckLvrRoutingService {
 
@@ -163,12 +164,16 @@ object TruckLvrRoutingService {
                     }
 
                     if (parsedRoutesList.isNotEmpty()) {
-                        if (parsedRoutesList.size == 1 && waypoints.isEmpty()) {
-                            val distEst = parsedRoutesList.first().distanceMiles
-                            if (distEst > 60.0) {
+                        if (waypoints.isEmpty() && parsedRoutesList.first().distanceMiles > 60.0) {
+                            val corridorPoints = listOf(
+                                Pair(LatLng(31.5493, -97.1467), "Alt via TX-31 & Waco"),
+                                Pair(LatLng(29.8849, -97.6700), "Alt via US-183 & Lockhart")
+                            )
+
+                            for ((corrPoint, label) in corridorPoints) {
+                                if (parsedRoutesList.size >= 3) break
                                 try {
-                                    val wacoPoint = LatLng(31.5493, -97.1467)
-                                    val corridorUrl = URL("https://maps.googleapis.com/maps/api/directions/json?origin=${origin.latitude},${origin.longitude}&destination=${destination.latitude},${destination.longitude}&waypoints=${wacoPoint.latitude},${wacoPoint.longitude}&key=$apiKey")
+                                    val corridorUrl = URL("https://maps.googleapis.com/maps/api/directions/json?origin=${origin.latitude},${origin.longitude}&destination=${destination.latitude},${destination.longitude}&waypoints=${corrPoint.latitude},${corrPoint.longitude}&key=$apiKey")
                                     val connCorr = corridorUrl.openConnection() as HttpURLConnection
                                     connCorr.connectTimeout = 4000
                                     connCorr.readTimeout = 4000
@@ -199,21 +204,25 @@ object TruckLvrRoutingService {
                                                 }
                                                 val cMiles = cMeters / 1609.34
                                                 val cMins = (cSecs / 60.0).toInt()
-                                                parsedRoutesList.add(
-                                                    TruckRouteResult(
-                                                        polylinePoints = cPoints,
-                                                        distanceMiles = cMiles,
-                                                        durationMins = cMins,
-                                                        warningMessage = "LVR Truck Route via TX-31 & Waco",
-                                                        waypoints = emptyList(),
-                                                        waypointAddresses = emptyList(),
-                                                        originAddress = originAddress,
-                                                        destinationAddress = destinationAddress,
-                                                        routeLegs = cLegsList,
-                                                        navSteps = listOf(TruckNavStep("Via US-175 / TX-31 through Waco to destination", "Corridor", "Straight", origin)),
-                                                        routeLabel = "Alt via TX-31 & Waco"
+
+                                                val isDuplicate = parsedRoutesList.any { abs(it.distanceMiles - cMiles) < 1.5 }
+                                                if (!isDuplicate) {
+                                                    parsedRoutesList.add(
+                                                        TruckRouteResult(
+                                                            polylinePoints = cPoints,
+                                                            distanceMiles = cMiles,
+                                                            durationMins = cMins,
+                                                            warningMessage = "LVR Truck Route $label",
+                                                            waypoints = emptyList(),
+                                                            waypointAddresses = emptyList(),
+                                                            originAddress = originAddress,
+                                                            destinationAddress = destinationAddress,
+                                                            routeLegs = cLegsList,
+                                                            navSteps = listOf(TruckNavStep("$label to destination", "Corridor", "Straight", origin)),
+                                                            routeLabel = label
+                                                        )
                                                     )
-                                                )
+                                                }
                                             }
                                         }
                                     }
@@ -221,14 +230,16 @@ object TruckLvrRoutingService {
                             }
                         }
 
-                        val routesWithAlternatives = parsedRoutesList.map { route ->
-                            route.copy(alternativeRoutes = parsedRoutesList)
+                        var finalRoutesList = parsedRoutesList.map { route ->
+                            route.copy(alternativeRoutes = emptyList())
                         }
 
-                        val primary = routesWithAlternatives.first()
-                        return@withContext primary.copy(
-                            alternativeRoutes = routesWithAlternatives
-                        )
+                        finalRoutesList = finalRoutesList.map { route ->
+                            route.copy(alternativeRoutes = finalRoutesList)
+                        }
+
+                        val primary = finalRoutesList.first()
+                        return@withContext primary
                     }
                 } else {
                     val apiStatusMsg = when (status) {

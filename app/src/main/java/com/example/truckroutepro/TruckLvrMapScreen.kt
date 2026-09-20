@@ -460,7 +460,31 @@ fun TruckLvrMapScreen(
                 compassEnabled = false,
                 myLocationButtonEnabled = false,
                 mapToolbarEnabled = false
-            )
+            ),
+            onMapLongClick = { latLng ->
+                if (routeResult != null) {
+                    val currentRes = routeResult
+                    val existingWaypoints = currentRes?.waypoints?.toMutableList() ?: mutableListOf()
+                    val existingAddresses = currentRes?.waypointAddresses?.toMutableList() ?: mutableListOf()
+
+                    val forcedLabel = "Via Waypoint (${String.format(Locale.US, "%.3f, %.3f", latLng.latitude, latLng.longitude)})"
+                    existingWaypoints.add(latLng)
+                    existingAddresses.add(forcedLabel)
+
+                    Toast.makeText(context, "Forcing route via selected road...", Toast.LENGTH_SHORT).show()
+
+                    calculateRoute(
+                        destLatLng = destinationLatLng ?: latLng,
+                        destText = destinationAddressText,
+                        customOrigin = currentOriginLatLng,
+                        originText = currentOriginText,
+                        waypoints = existingWaypoints,
+                        waypointAddresses = existingAddresses
+                    )
+                } else {
+                    Toast.makeText(context, "Search a destination first to force a route", Toast.LENGTH_SHORT).show()
+                }
+            }
         ) {
             val dest = destinationLatLng
             if (dest != null) {
