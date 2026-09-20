@@ -85,12 +85,13 @@ fun ManualAddressDialog(
     val apiKey = "AIzaSyAcscUaSZ1EGCuTGb81kgLD4ul92DXpn5E"
 
     var isEditingOrigin by remember { mutableStateOf(initialEditingOrigin) }
-    var originInput by remember { mutableStateOf(initialOrigin.ifBlank { "Current GPS Location" }) }
+    var originInput by remember { mutableStateOf(if (initialEditingOrigin) "" else initialOrigin.ifBlank { "Current GPS Location" }) }
     var originLatLng by remember { mutableStateOf<LatLng?>(null) }
 
     var destInput by remember { mutableStateOf(initialDestination) }
     var destLatLng by remember { mutableStateOf<LatLng?>(null) }
 
+    val originFocusRequester = remember { FocusRequester() }
     val destFocusRequester = remember { FocusRequester() }
 
     val waypointsList = remember { mutableStateListOf<WaypointInput>() }
@@ -98,8 +99,13 @@ fun ManualAddressDialog(
     var errorMessage by remember { mutableStateOf("") }
     var isGeocoding by remember { mutableStateOf(false) }
 
-    LaunchedEffect(Unit) {
-        destFocusRequester.requestFocus()
+    LaunchedEffect(initialEditingOrigin) {
+        delay(100)
+        if (initialEditingOrigin) {
+            originFocusRequester.requestFocus()
+        } else {
+            destFocusRequester.requestFocus()
+        }
     }
 
     AlertDialog(
@@ -130,7 +136,17 @@ fun ManualAddressDialog(
                         readOnly = true,
                         label = { Text("Origin / Shipper Address") },
                         trailingIcon = {
-                            IconButton(onClick = { isEditingOrigin = true }) {
+                            IconButton(
+                                onClick = {
+                                    isEditingOrigin = true
+                                    originInput = ""
+                                    originLatLng = null
+                                    scope.launch {
+                                        delay(100)
+                                        originFocusRequester.requestFocus()
+                                    }
+                                }
+                            ) {
                                 Icon(
                                     imageVector = Icons.Default.Edit,
                                     contentDescription = "Edit Origin Address"
@@ -148,6 +164,7 @@ fun ManualAddressDialog(
                         },
                         label = "Origin / Shipper Address",
                         apiKey = apiKey,
+                        focusRequester = originFocusRequester,
                         trailingIcon = {
                             IconButton(
                                 onClick = {
