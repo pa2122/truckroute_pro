@@ -65,6 +65,7 @@ data class WaypointInput(
 fun ManualAddressDialog(
     initialOrigin: String,
     initialDestination: String,
+    initialEditingOrigin: Boolean = false,
     hasActiveRoute: Boolean = false,
     onRouteCalculated: (originText: String, originLatLng: LatLng?, destText: String, destLatLng: LatLng) -> Unit = { _, _, _, _ -> },
     onMultiStopRouteCalculated: (
@@ -83,7 +84,7 @@ fun ManualAddressDialog(
     val scope = rememberCoroutineScope()
     val apiKey = "AIzaSyAcscUaSZ1EGCuTGb81kgLD4ul92DXpn5E"
 
-    var isEditingOrigin by remember { mutableStateOf(false) }
+    var isEditingOrigin by remember { mutableStateOf(initialEditingOrigin) }
     var originInput by remember { mutableStateOf(initialOrigin.ifBlank { "Current GPS Location" }) }
     var originLatLng by remember { mutableStateOf<LatLng?>(null) }
 

@@ -36,6 +36,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -260,6 +261,7 @@ fun TruckLvrMapScreen(
     var selectedStopLocation by remember { mutableStateOf<LatLng?>(null) }
     var selectedStopOption by remember { mutableStateOf<TruckStopOption?>(null) }
     var showAddressDialog by remember { mutableStateOf(false) }
+    var isEditingOriginFromMap by remember { mutableStateOf(false) }
     var showTruckStopFinder by remember { mutableStateOf(false) }
     var isBottomHudExpanded by remember { mutableStateOf(false) }
     var isSearchingStopsInCard by remember { mutableStateOf(false) }
@@ -1018,12 +1020,33 @@ fun TruckLvrMapScreen(
                             if (legs.isNotEmpty()) {
                                 legs.forEachIndexed { index, leg ->
                                     if (index == 0) {
-                                        Text(
-                                            "Start: ${leg.startLabel}",
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            fontWeight = FontWeight.Bold,
-                                            color = MaterialTheme.colorScheme.onSurface
-                                        )
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(
+                                                "Start: ${leg.startLabel}",
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                fontWeight = FontWeight.Bold,
+                                                color = MaterialTheme.colorScheme.onSurface,
+                                                modifier = Modifier.weight(1f)
+                                            )
+                                            IconButton(
+                                                onClick = {
+                                                    isEditingOriginFromMap = true
+                                                    showAddressDialog = true
+                                                },
+                                                modifier = Modifier.size(28.dp)
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Edit,
+                                                    contentDescription = "Edit Start Location",
+                                                    tint = MaterialTheme.colorScheme.primary,
+                                                    modifier = Modifier.size(18.dp)
+                                                )
+                                            }
+                                        }
                                     }
                                     Row(
                                         modifier = Modifier.fillMaxWidth(),
@@ -1055,11 +1078,32 @@ fun TruckLvrMapScreen(
                                     )
                                 }
                             } else {
-                                Text(
-                                    "Start: ${res.originAddress}",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = FontWeight.Bold
-                                )
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        "Start: ${res.originAddress}",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    IconButton(
+                                        onClick = {
+                                            isEditingOriginFromMap = true
+                                            showAddressDialog = true
+                                        },
+                                        modifier = Modifier.size(28.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Edit,
+                                            contentDescription = "Edit Start Location",
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+                                }
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -1090,6 +1134,22 @@ fun TruckLvrMapScreen(
                         }
 
                         if (isBottomHudExpanded) {
+                            OutlinedButton(
+                                onClick = {
+                                    isEditingOriginFromMap = true
+                                    showAddressDialog = true
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(20.dp)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(16.dp))
+                                    Text("Edit Start Location / Origin")
+                                }
+                            }
                             OutlinedButton(
                                 onClick = { isSearchingStopsInCard = true },
                                 modifier = Modifier.fillMaxWidth(),
@@ -1310,14 +1370,19 @@ fun TruckLvrMapScreen(
 
     if (showAddressDialog) {
         ManualAddressDialog(
-            initialOrigin = "Current GPS Location",
+            initialOrigin = routeResult?.originAddress ?: "Current GPS Location",
             initialDestination = destinationAddressText,
+            initialEditingOrigin = isEditingOriginFromMap,
             hasActiveRoute = routePolyline.isNotEmpty(),
             onMultiStopRouteCalculated = { originText, originLatLng, destText, destLatLng, waypoints, waypointAddresses ->
                 calculateRoute(destLatLng, destText, originLatLng, originText, waypoints, waypointAddresses)
                 showAddressDialog = false
+                isEditingOriginFromMap = false
             },
-            onDismiss = { showAddressDialog = false }
+            onDismiss = {
+                showAddressDialog = false
+                isEditingOriginFromMap = false
+            }
         )
     }
 
