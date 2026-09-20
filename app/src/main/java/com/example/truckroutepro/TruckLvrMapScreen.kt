@@ -255,6 +255,8 @@ fun TruckLvrMapScreen(
             }
         }
     }
+    var currentOriginLatLng by remember { mutableStateOf<LatLng?>(null) }
+    var currentOriginText by remember { mutableStateOf("Current GPS Location") }
     var routePolyline by remember { mutableStateOf<List<LatLng>>(emptyList()) }
     var routeResult by remember { mutableStateOf<TruckRouteResult?>(null) }
     var routeTruckStops by remember { mutableStateOf<List<TruckStopOption>>(emptyList()) }
@@ -405,11 +407,13 @@ fun TruckLvrMapScreen(
     fun calculateRoute(
         destLatLng: LatLng,
         destText: String,
-        customOrigin: LatLng? = null,
-        originText: String = "Current Location",
+        customOrigin: LatLng? = currentOriginLatLng,
+        originText: String = currentOriginText,
         waypoints: List<LatLng> = emptyList(),
         waypointAddresses: List<String> = emptyList()
     ) {
+        currentOriginLatLng = customOrigin
+        currentOriginText = originText
         val startPoint = customOrigin ?: userCurrentLocation ?: mabankLatLng
         destinationLatLng = destLatLng
         destinationAddressText = destText
@@ -759,8 +763,8 @@ fun TruckLvrMapScreen(
                                 calculateRoute(
                                     destLatLng = destinationLatLng ?: details.location,
                                     destText = destinationAddressText,
-                                    customOrigin = null,
-                                    originText = currentRes?.originAddress ?: "Current Location",
+                                    customOrigin = currentOriginLatLng,
+                                    originText = currentOriginText,
                                     waypoints = existingWaypoints,
                                     waypointAddresses = existingAddresses
                                 )
@@ -962,8 +966,8 @@ fun TruckLvrMapScreen(
                                                     calculateRoute(
                                                         destLatLng = destinationLatLng ?: stop.location,
                                                         destText = destinationAddressText,
-                                                        customOrigin = null,
-                                                        originText = currentRes?.originAddress ?: "Current Location",
+                                                        customOrigin = currentOriginLatLng,
+                                                        originText = currentOriginText,
                                                         waypoints = existingWaypoints,
                                                         waypointAddresses = existingAddresses
                                                     )
@@ -1266,8 +1270,8 @@ fun TruckLvrMapScreen(
                                 calculateRoute(
                                     destLatLng = destinationLatLng ?: activeSelectedStop.location,
                                     destText = destinationAddressText,
-                                    customOrigin = null,
-                                    originText = currentRes?.originAddress ?: "Current Location",
+                                    customOrigin = currentOriginLatLng,
+                                    originText = currentOriginText,
                                     waypoints = existingWaypoints,
                                     waypointAddresses = existingAddresses
                                 )
@@ -1405,8 +1409,8 @@ fun TruckLvrMapScreen(
                 calculateRoute(
                     destLatLng = destinationLatLng ?: stopLatLng,
                     destText = destinationAddressText,
-                    customOrigin = null,
-                    originText = currentRes?.originAddress ?: "Current Location",
+                    customOrigin = currentOriginLatLng,
+                    originText = currentOriginText,
                     waypoints = existingWaypoints,
                     waypointAddresses = existingAddresses
                 )
