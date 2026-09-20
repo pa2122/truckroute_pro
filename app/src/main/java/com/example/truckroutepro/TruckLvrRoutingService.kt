@@ -13,24 +13,40 @@ object TruckLvrRoutingService {
         apiKey: String,
         origin: LatLng,
         destination: LatLng,
+        originAddress: String = "Current Location",
+        destinationAddress: String = "Destination",
         waypoints: List<LatLng> = emptyList(),
         waypointAddresses: List<String> = emptyList(),
         profile: TruckProfile
     ): TruckRouteResult = withContext(Dispatchers.IO) {
+        val stopLabels = mutableListOf<String>().apply {
+            add(originAddress.ifBlank { "Current Location" })
+            if (waypointAddresses.isNotEmpty()) {
+                addAll(waypointAddresses)
+            } else {
+                waypoints.forEachIndexed { i, _ -> add("Stop ${i + 1}") }
+            }
+            add(destinationAddress.ifBlank { "Destination" })
+        }
+
         if (apiKey.isBlank()) {
             val allPoints = mutableListOf(origin).apply {
                 addAll(waypoints)
                 add(destination)
             }
+            val fallbackLegs = createFallbackLegs(origin, destination, waypoints, stopLabels, profile)
             return@withContext TruckRouteResult(
                 polylinePoints = allPoints,
-                distanceMiles = estimateDistanceMiles(origin, destination),
-                durationMins = estimateDurationMins(origin, destination),
+                distanceMiles = fallbackLegs.sumOf { it.distanceMiles },
+                durationMins = fallbackLegs.sumOf { it.durationMins },
                 warningMessage = "Map API key missing. Displaying direct path.",
                 waypoints = waypoints,
                 waypointAddresses = waypointAddresses,
+                originAddress = originAddress,
+                destinationAddress = destinationAddress,
+                routeLegs = fallbackLegs,
                 navSteps = listOf(
-                    TruckNavStep("Head toward destination on truck route", "Direct", "⬆️", origin)
+                    TruckNavStep("Head toward destination on truck route", "Direct", "", origin)
                 )
             )
         }
@@ -60,12 +76,29 @@ object TruckLvrRoutingService {
                         var totalMeters = 0.0
                         var totalSecs = 0.0
                         val stepsList = mutableListOf<TruckNavStep>()
+                        val routeLegsList = mutableListOf<TruckRouteLeg>()
                         val detailedPolylinePoints = mutableListOf<LatLng>()
 
                         for (l in 0 until legs.length()) {
                             val leg = legs.getJSONObject(l)
-                            totalMeters += leg.getJSONObject("distance").getDouble("value")
-                            totalSecs += leg.getJSONObject("duration").getDouble("value")
+                            val legMeters = leg.getJSONObject("distance").getDouble("value")
+                            val legSecs = leg.getJSONObject("duration").getDouble("value")
+                            totalMeters += legMeters
+                            totalSecs += legSecs
+
+                            val legMiles = legMeters / 1609.34
+                            val legMins = (legSecs / 60.0).toInt()
+                            val sLabel = stopLabels.getOrElse(l) { leg.optString("start_address", "Stop $l") }
+                            val eLabel = stopLabels.getOrElse(l + 1) { leg.optString("end_address", "Stop ${l + 1}") }
+
+                            routeLegsList.add(
+                                TruckRouteLeg(
+                                    startLabel = sLabel,
+                                    endLabel = eLabel,
+                                    distanceMiles = legMiles,
+                                    durationMins = legMins
+                                )
+                            )
 
                             if (leg.has("steps")) {
                                 val stepsJson = leg.getJSONArray("steps")
@@ -84,10 +117,10 @@ object TruckLvrRoutingService {
 
                                     val maneuver = if (s.has("maneuver")) s.getString("maneuver") else ""
                                     val icon = when {
-                                        maneuver.contains("right") -> "➡️"
-                                        maneuver.contains("left") -> "⬅️"
-                                        maneuver.contains("u-turn") -> "🔄"
-                                        else -> "⬆️"
+                                        maneuver.contains("right") -> "Right"
+                                        maneuver.contains("left") -> "Left"
+                                        maneuver.contains("u-turn") -> "U-Turn"
+                                        else -> "Straight"
                                     }
 
                                     stepsList.add(TruckNavStep(instruction = cleanText, distanceText = distText, maneuverIcon = icon, startLatLng = latLng))
@@ -106,7 +139,7 @@ object TruckLvrRoutingService {
                         val durationMins = maxOf(rawDurationMins, truckSpeedDurationMins)
 
                         val stopMsg = if (waypoints.isNotEmpty()) " (${waypoints.size} Stops)" else ""
-                        val warningMsg = "✅ LVR Truck Safe Route Verified$stopMsg: Clears ${profile.formattedHeight} | Max ${profile.weightLbs.toInt()} lbs | Governed ${truckSpeedMph} MPH"
+                        val warningMsg = "LVR Truck Safe Route Verified$stopMsg: Clears ${profile.formattedHeight} | Max ${profile.weightLbs.toInt()} lbs | Governed $truckSpeedMph MPH"
 
                         return@withContext TruckRouteResult(
                             polylinePoints = points,
@@ -115,35 +148,46 @@ object TruckLvrRoutingService {
                             warningMessage = warningMsg,
                             waypoints = waypoints,
                             waypointAddresses = waypointAddresses,
+                            originAddress = originAddress,
+                            destinationAddress = destinationAddress,
+                            routeLegs = routeLegsList,
                             navSteps = stepsList
                         )
                     }
                 } else {
                     val apiStatusMsg = when (status) {
-                        "REQUEST_DENIED" -> "⚠️ Google API Status: REQUEST_DENIED (Enable Directions API in Google Cloud Console)"
-                        "OVER_QUERY_LIMIT" -> "⚠️ Google API Status: OVER_QUERY_LIMIT (API quota exceeded)"
-                        "ZERO_RESULTS" -> "⚠️ Google API Status: ZERO_RESULTS (No valid truck route found)"
-                        "INVALID_REQUEST" -> "⚠️ Google API Status: INVALID_REQUEST (Check address coordinates)"
-                        else -> "⚠️ Google API Status: $status (Displaying fallback path)"
+                        "REQUEST_DENIED" -> "Google API Status: REQUEST_DENIED (Enable Directions API in Google Cloud Console)"
+                        "OVER_QUERY_LIMIT" -> "Google API Status: OVER_QUERY_LIMIT (API quota exceeded)"
+                        "ZERO_RESULTS" -> "Google API Status: ZERO_RESULTS (No valid truck route found)"
+                        "INVALID_REQUEST" -> "Google API Status: INVALID_REQUEST (Check address coordinates)"
+                        else -> "Google API Status: $status (Displaying fallback path)"
                     }
+                    val fallbackLegs = createFallbackLegs(origin, destination, waypoints, stopLabels, profile)
                     return@withContext TruckRouteResult(
                         polylinePoints = listOf(origin, destination),
-                        distanceMiles = estimateDistanceMiles(origin, destination),
-                        durationMins = estimateDurationMins(origin, destination, profile.maxSpeedMph),
+                        distanceMiles = fallbackLegs.sumOf { it.distanceMiles },
+                        durationMins = fallbackLegs.sumOf { it.durationMins },
                         warningMessage = apiStatusMsg,
+                        originAddress = originAddress,
+                        destinationAddress = destinationAddress,
+                        routeLegs = fallbackLegs,
                         navSteps = listOf(
-                            TruckNavStep("Proceed on truck-approved route to destination", "Direct", "⬆️", origin)
+                            TruckNavStep("Proceed on truck-approved route to destination", "Direct", "Straight", origin)
                         )
                     )
                 }
             } else {
+                val fallbackLegs = createFallbackLegs(origin, destination, waypoints, stopLabels, profile)
                 return@withContext TruckRouteResult(
                     polylinePoints = listOf(origin, destination),
-                    distanceMiles = estimateDistanceMiles(origin, destination),
-                    durationMins = estimateDurationMins(origin, destination, profile.maxSpeedMph),
-                    warningMessage = "⚠️ Google API HTTP $responseCode Error (Displaying fallback path)",
+                    distanceMiles = fallbackLegs.sumOf { it.distanceMiles },
+                    durationMins = fallbackLegs.sumOf { it.durationMins },
+                    warningMessage = "Google API HTTP $responseCode Error (Displaying fallback path)",
+                    originAddress = originAddress,
+                    destinationAddress = destinationAddress,
+                    routeLegs = fallbackLegs,
                     navSteps = listOf(
-                        TruckNavStep("Proceed on truck-approved route to destination", "Direct", "⬆️", origin)
+                        TruckNavStep("Proceed on truck-approved route to destination", "Direct", "Straight", origin)
                     )
                 )
             }
@@ -152,15 +196,46 @@ object TruckLvrRoutingService {
         }
 
         // Fallback straight-line route if offline
+        val fallbackLegs = createFallbackLegs(origin, destination, waypoints, stopLabels, profile)
         TruckRouteResult(
             polylinePoints = listOf(origin, destination),
-            distanceMiles = estimateDistanceMiles(origin, destination),
-            durationMins = estimateDurationMins(origin, destination, profile.maxSpeedMph),
+            distanceMiles = fallbackLegs.sumOf { it.distanceMiles },
+            durationMins = fallbackLegs.sumOf { it.durationMins },
             warningMessage = "Offline Mode: Direct path rendered for ${profile.formattedHeight} truck.",
+            originAddress = originAddress,
+            destinationAddress = destinationAddress,
+            routeLegs = fallbackLegs,
             navSteps = listOf(
-                TruckNavStep("Proceed on truck-approved route to destination", "Direct", "⬆️", origin)
+                TruckNavStep("Proceed on truck-approved route to destination", "Direct", "Straight", origin)
             )
         )
+    }
+
+    private fun createFallbackLegs(
+        origin: LatLng,
+        destination: LatLng,
+        waypoints: List<LatLng>,
+        stopLabels: List<String>,
+        profile: TruckProfile
+    ): List<TruckRouteLeg> {
+        val points = mutableListOf(origin).apply {
+            addAll(waypoints)
+            add(destination)
+        }
+        val legs = mutableListOf<TruckRouteLeg>()
+        for (i in 0 until points.size - 1) {
+            val dist = estimateDistanceMiles(points[i], points[i + 1])
+            val dur = estimateDurationMins(points[i], points[i + 1], profile.maxSpeedMph)
+            legs.add(
+                TruckRouteLeg(
+                    startLabel = stopLabels.getOrElse(i) { if (i == 0) "Origin" else "Stop $i" },
+                    endLabel = stopLabels.getOrElse(i + 1) { if (i + 1 == points.size - 1) "Destination" else "Stop ${i + 1}" },
+                    distanceMiles = dist,
+                    durationMins = dur
+                )
+            )
+        }
+        return legs
     }
 
     private fun decodePolyline(encoded: String): List<LatLng> {
@@ -218,6 +293,13 @@ data class TruckNavStep(
     val startLatLng: LatLng
 )
 
+data class TruckRouteLeg(
+    val startLabel: String,
+    val endLabel: String,
+    val distanceMiles: Double,
+    val durationMins: Int
+)
+
 data class TruckRouteResult(
     val polylinePoints: List<LatLng>,
     val distanceMiles: Double,
@@ -225,5 +307,8 @@ data class TruckRouteResult(
     val warningMessage: String,
     val waypoints: List<LatLng> = emptyList(),
     val waypointAddresses: List<String> = emptyList(),
+    val originAddress: String = "Origin",
+    val destinationAddress: String = "Destination",
+    val routeLegs: List<TruckRouteLeg> = emptyList(),
     val navSteps: List<TruckNavStep> = emptyList()
 )

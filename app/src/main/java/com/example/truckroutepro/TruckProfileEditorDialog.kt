@@ -66,7 +66,7 @@ fun TruckProfileEditorDialog(
         onDismissRequest = onDismiss,
         title = {
             Text(
-                "⚙️ Edit Truck Profile",
+                "Edit Truck Profile",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold
             )
@@ -246,7 +246,7 @@ fun TruckProfileEditorDialog(
                     onSave(updatedProfile)
                 }
             ) {
-                Text("💾 Save Specifications")
+                Text("Save Specifications")
             }
         },
         dismissButton = {

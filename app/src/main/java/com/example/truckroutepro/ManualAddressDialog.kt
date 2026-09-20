@@ -2,24 +2,34 @@ package com.example.truckroutepro
 
 import android.content.Context
 import android.location.Geocoder
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -28,11 +38,16 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.PopupProperties
 import com.google.android.gms.maps.model.LatLng
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
@@ -50,6 +65,7 @@ data class WaypointInput(
 fun ManualAddressDialog(
     initialOrigin: String,
     initialDestination: String,
+    hasActiveRoute: Boolean = false,
     onRouteCalculated: (originText: String, originLatLng: LatLng?, destText: String, destLatLng: LatLng) -> Unit = { _, _, _, _ -> },
     onMultiStopRouteCalculated: (
         originText: String,
@@ -67,22 +83,29 @@ fun ManualAddressDialog(
     val scope = rememberCoroutineScope()
     val apiKey = "AIzaSyAcscUaSZ1EGCuTGb81kgLD4ul92DXpn5E"
 
+    var isEditingOrigin by remember { mutableStateOf(false) }
     var originInput by remember { mutableStateOf(initialOrigin.ifBlank { "Current GPS Location" }) }
     var originLatLng by remember { mutableStateOf<LatLng?>(null) }
 
     var destInput by remember { mutableStateOf(initialDestination) }
     var destLatLng by remember { mutableStateOf<LatLng?>(null) }
 
+    val destFocusRequester = remember { FocusRequester() }
+
     val waypointsList = remember { mutableStateListOf<WaypointInput>() }
 
     var errorMessage by remember { mutableStateOf("") }
     var isGeocoding by remember { mutableStateOf(false) }
 
+    LaunchedEffect(Unit) {
+        destFocusRequester.requestFocus()
+    }
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
             Text(
-                "📍 Route & Places Search",
+                "Route & Places Search",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold
             )
@@ -98,63 +121,55 @@ fun ManualAddressDialog(
                     color = MaterialTheme.colorScheme.secondary
                 )
 
-                // 🚛 Origin Search Field
-                PlacesSearchTextField(
-                    value = originInput,
-                    onValueChange = {
-                        originInput = it
-                        originLatLng = null
-                    },
-                    label = "Origin / Shipper Address",
-                    apiKey = apiKey,
-                    onPlaceSelected = { details ->
-                        originInput = details.formattedAddress
-                        originLatLng = details.location
-                    }
-                )
-
-                // 📍 Intermediate Stops List
-                waypointsList.forEachIndexed { index, stop ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        Box(modifier = Modifier.weight(1f)) {
-                            PlacesSearchTextField(
-                                value = stop.addressText,
-                                onValueChange = { input ->
-                                    waypointsList[index] = stop.copy(addressText = input, resolvedLatLng = null)
-                                },
-                                label = "Stop ${index + 1} Waypoint",
-                                apiKey = apiKey,
-                                onPlaceSelected = { details ->
-                                    waypointsList[index] = stop.copy(addressText = details.formattedAddress, resolvedLatLng = details.location)
+                // Origin Search Field (Read-only by default with Pencil Edit icon & Cancel icon when editing)
+                if (!isEditingOrigin) {
+                    OutlinedTextField(
+                        value = originInput,
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Origin / Shipper Address") },
+                        trailingIcon = {
+                            IconButton(onClick = { isEditingOrigin = true }) {
+                                Icon(
+                                    imageVector = Icons.Default.Edit,
+                                    contentDescription = "Edit Origin Address"
+                                )
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                } else {
+                    PlacesSearchTextField(
+                        value = originInput,
+                        onValueChange = {
+                            originInput = it
+                            originLatLng = null
+                        },
+                        label = "Origin / Shipper Address",
+                        apiKey = apiKey,
+                        trailingIcon = {
+                            IconButton(
+                                onClick = {
+                                    originInput = initialOrigin.ifBlank { "Current GPS Location" }
+                                    originLatLng = null
+                                    isEditingOrigin = false
                                 }
-                            )
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = "Cancel Editing Origin"
+                                )
+                            }
+                        },
+                        onPlaceSelected = { details ->
+                            originInput = details.formattedAddress
+                            originLatLng = details.location
+                            isEditingOrigin = false
                         }
-
-                        IconButton(
-                            onClick = { waypointsList.removeAt(index) }
-                        ) {
-                            Text("❌")
-                        }
-                    }
+                    )
                 }
 
-                // ➕ Add Waypoint Button
-                OutlinedButton(
-                    onClick = {
-                        if (waypointsList.size < 5) {
-                            waypointsList.add(WaypointInput())
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("➕ Add Stop / Waypoint")
-                }
-
-                // 🏁 Destination Search Field
+                // Final Destination / Consignee Search Field (Default active focused text box)
                 PlacesSearchTextField(
                     value = destInput,
                     onValueChange = {
@@ -163,11 +178,55 @@ fun ManualAddressDialog(
                     },
                     label = "Final Destination / Consignee",
                     apiKey = apiKey,
+                    focusRequester = destFocusRequester,
                     onPlaceSelected = { details ->
                         destInput = details.formattedAddress
                         destLatLng = details.location
                     }
                 )
+
+                if (hasActiveRoute || waypointsList.isNotEmpty()) {
+                    // Intermediate Stops List
+                    waypointsList.forEachIndexed { index, stop ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Box(modifier = Modifier.weight(1f)) {
+                                PlacesSearchTextField(
+                                    value = stop.addressText,
+                                    onValueChange = { input ->
+                                        waypointsList[index] = stop.copy(addressText = input, resolvedLatLng = null)
+                                    },
+                                    label = "Stop ${index + 1} Waypoint",
+                                    apiKey = apiKey,
+                                    onPlaceSelected = { details ->
+                                        waypointsList[index] = stop.copy(addressText = details.formattedAddress, resolvedLatLng = details.location)
+                                    }
+                                )
+                            }
+
+                            IconButton(
+                                onClick = { waypointsList.removeAt(index) }
+                            ) {
+                                Text("Remove")
+                            }
+                        }
+                    }
+
+                    // Add Waypoint Button
+                    OutlinedButton(
+                        onClick = {
+                            if (waypointsList.size < 5) {
+                                waypointsList.add(WaypointInput())
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Add Stop / Waypoint")
+                    }
+                }
 
                 if (errorMessage.isNotBlank()) {
                     Text(
@@ -221,7 +280,7 @@ fun ManualAddressDialog(
                     }
                 }
             ) {
-                Text(if (isGeocoding) "Finding Places..." else "🧭 Calculate Route")
+                Text(if (isGeocoding) "Finding Places..." else "Calculate Route")
             }
         },
         dismissButton = {
@@ -230,74 +289,6 @@ fun ManualAddressDialog(
             }
         }
     )
-}
-
-@Composable
-fun PlacesSearchTextField(
-    value: String,
-    onValueChange: (String) -> Unit,
-    label: String,
-    apiKey: String,
-    onPlaceSelected: (PlaceDetailsResult) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    var expanded by remember { mutableStateOf(false) }
-    var predictions by remember { mutableStateOf<List<PlacePrediction>>(emptyList()) }
-    val scope = rememberCoroutineScope()
-
-    Box(modifier = modifier.fillMaxWidth()) {
-        OutlinedTextField(
-            value = value,
-            onValueChange = { input ->
-                onValueChange(input)
-                if (input.length >= 2) {
-                    scope.launch {
-                        val results = TruckPlacesService.getPlacePredictions(apiKey, input)
-                        predictions = results
-                        expanded = results.isNotEmpty()
-                    }
-                } else {
-                    predictions = emptyList()
-                    expanded = false
-                }
-            },
-            label = { Text(label) },
-            singleLine = false,
-            minLines = 1,
-            maxLines = 2,
-            modifier = Modifier.fillMaxWidth()
-        )
-
-        DropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false },
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            predictions.forEach { p ->
-                DropdownMenuItem(
-                    text = {
-                        Column {
-                            Text(p.primaryText, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
-                            if (p.secondaryText.isNotBlank()) {
-                                Text(p.secondaryText, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.secondary)
-                            }
-                        }
-                    },
-                    onClick = {
-                        expanded = false
-                        onValueChange(p.fullDescription)
-                        scope.launch {
-                            val details = TruckPlacesService.getPlaceDetails(apiKey, p.placeId)
-                            if (details != null) {
-                                onValueChange(details.formattedAddress)
-                                onPlaceSelected(details)
-                            }
-                        }
-                    }
-                )
-            }
-        }
-    }
 }
 
 private suspend fun geocodeAddress(context: Context, addressText: String): LatLng? = withContext(Dispatchers.IO) {

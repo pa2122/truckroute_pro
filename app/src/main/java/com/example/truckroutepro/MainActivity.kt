@@ -7,13 +7,19 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DrawerValue
@@ -22,6 +28,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.ModalDrawerSheet
@@ -156,7 +163,7 @@ fun TruckRouteProApp() {
                     ) {
                         Text("Navigation & Routes", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
                         TextButton(onClick = { navigationSectionExpanded = !navigationSectionExpanded }) {
-                            Text(if (navigationSectionExpanded) "▼" else "▶")
+                            Text(if (navigationSectionExpanded) "Hide" else "Show")
                         }
                     }
 
@@ -190,7 +197,7 @@ fun TruckRouteProApp() {
                     ) {
                         Text("Vehicle Configurations", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
                         TextButton(onClick = { vehicleSectionExpanded = !vehicleSectionExpanded }) {
-                            Text(if (vehicleSectionExpanded) "▼" else "▶")
+                            Text(if (vehicleSectionExpanded) "Hide" else "Show")
                         }
                     }
 
@@ -266,7 +273,7 @@ fun TruckRouteProApp() {
                             value = when (selectedOrientationMode) {
                                 "NORTH_UP" -> "North-Up Always"
                                 "HEADING_UP" -> "Driving Direction Up Always"
-                                else -> "Smart Auto (North > 20mi, Driving ≤ 20mi)"
+                                else -> "Smart Auto (North > 20mi, Driving <= 20mi)"
                             },
                             onValueChange = {},
                             readOnly = true,
@@ -281,7 +288,7 @@ fun TruckRouteProApp() {
                             onDismissRequest = { orientationDropdownExpanded = false }
                         ) {
                             DropdownMenuItem(
-                                text = { Text("Smart Auto-Switch (North > 20mi, Driving ≤ 20mi)") },
+                                text = { Text("Smart Auto-Switch (North > 20mi, Driving <= 20mi)") },
                                 onClick = {
                                     selectedOrientationMode = "SMART_AUTO"
                                     orientationDropdownExpanded = false
@@ -335,8 +342,18 @@ fun TruckRouteProApp() {
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            OutlinedButton(onClick = { scope.launch { drawerState.open() } }) {
-                                Text("Navigation Menu")
+                            Button(
+                                onClick = { scope.launch { drawerState.open() } },
+                                shape = CircleShape,
+                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surfaceVariant, contentColor = MaterialTheme.colorScheme.onSurfaceVariant),
+                                contentPadding = PaddingValues(0.dp),
+                                modifier = Modifier.size(44.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Menu,
+                                    contentDescription = "Open Sidebar",
+                                    modifier = Modifier.size(24.dp)
+                                )
                             }
                             Text("TruckRoute Pro", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                         }
@@ -414,13 +431,13 @@ fun TruckRouteProApp() {
                                 }
 
                                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                    Text("• Height: ${activeProfile.formattedHeight}", style = MaterialTheme.typography.bodySmall)
-                                    Text("• Gross Weight: ${activeProfile.weightLbs.toInt()} lbs", style = MaterialTheme.typography.bodySmall)
-                                    Text("• Width: ${activeProfile.widthInches.toInt()}\" (8.5 ft)", style = MaterialTheme.typography.bodySmall)
-                                    Text("• Vehicle Type: ${activeProfile.trailerType}", style = MaterialTheme.typography.bodySmall)
-                                    Text("• Axles: ${activeProfile.axleCount} Axles", style = MaterialTheme.typography.bodySmall)
-                                    Text("• Governed Speed: ${activeProfile.maxSpeedMph} MPH", style = MaterialTheme.typography.bodySmall)
-                                    Text("• Hazmat: ${if (activeProfile.isHazmat) "Class 1-9 Active" else "Non-Hazmat Standard"}", style = MaterialTheme.typography.bodySmall)
+                                    Text("Height: ${activeProfile.formattedHeight}", style = MaterialTheme.typography.bodySmall)
+                                    Text("Gross Weight: ${activeProfile.weightLbs.toInt()} lbs", style = MaterialTheme.typography.bodySmall)
+                                    Text("Width: ${activeProfile.widthInches.toInt()}\" (8.5 ft)", style = MaterialTheme.typography.bodySmall)
+                                    Text("Vehicle Type: ${activeProfile.trailerType}", style = MaterialTheme.typography.bodySmall)
+                                    Text("Axles: ${activeProfile.axleCount} Axles", style = MaterialTheme.typography.bodySmall)
+                                    Text("Governed Speed: ${activeProfile.maxSpeedMph} MPH", style = MaterialTheme.typography.bodySmall)
+                                    Text("Hazmat: ${if (activeProfile.isHazmat) "Class 1-9 Active" else "Non-Hazmat Standard"}", style = MaterialTheme.typography.bodySmall)
                                 }
                             }
                         }
