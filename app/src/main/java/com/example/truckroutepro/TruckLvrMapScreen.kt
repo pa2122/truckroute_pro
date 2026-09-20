@@ -68,8 +68,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
+import coil.compose.AsyncImage
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -1372,6 +1374,30 @@ fun TruckLvrMapScreen(
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
+                    }
+
+                    // Google Places Photo Carousel
+                    if (activeSelectedStop.photoUrls.isNotEmpty()) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            activeSelectedStop.photoUrls.forEach { photoUrl ->
+                                Card(
+                                    shape = RoundedCornerShape(12.dp),
+                                    modifier = Modifier.size(width = 220.dp, height = 130.dp)
+                                ) {
+                                    AsyncImage(
+                                        model = photoUrl,
+                                        contentDescription = "Truck Stop Photo",
+                                        contentScale = ContentScale.Crop,
+                                        modifier = Modifier.fillMaxSize()
+                                    )
+                                }
+                            }
+                        }
                     }
 
                     HorizontalDivider()

@@ -66,6 +66,9 @@ dependencies {
     implementation("com.google.android.gms:play-services-maps:19.1.0")
     implementation("com.google.maps.android:maps-compose:6.5.0")
 
+    // 🖼️ Coil Image Loading
+    implementation("io.coil-kt:coil-compose:2.7.0")
+
     // Markdown
     implementation("com.github.jeziellago:compose-markdown:0.5.6")
 

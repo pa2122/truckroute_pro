@@ -56,6 +56,7 @@ data class TruckStopOption(
     val phoneNumber: String = "",
     val websiteUrl: String = "",
     val amenities: List<String> = emptyList(),
+    val photoUrls: List<String> = emptyList(),
     val isOpen24Hours: Boolean = true
 )
 
@@ -592,6 +593,18 @@ suspend fun queryTruckStopsNearLocation(
                     val website = r.optString("websiteUri", "")
                     val amenities = getTruckerAmenities(name)
 
+                    val photoUrlsList = mutableListOf<String>()
+                    if (r.has("photos")) {
+                        val photosArr = r.getJSONArray("photos")
+                        for (p in 0 until minOf(photosArr.length(), 6)) {
+                            val pObj = photosArr.getJSONObject(p)
+                            val photoName = pObj.optString("name", "")
+                            if (photoName.isNotBlank()) {
+                                photoUrlsList.add("https://places.googleapis.com/v1/$photoName/media?maxWidthPx=800&maxHeightPx=600&key=$apiKey")
+                            }
+                        }
+                    }
+
                     val locObj = r.optJSONObject("location")
                     if (locObj != null) {
                         val stopLatLng = LatLng(locObj.getDouble("latitude"), locObj.getDouble("longitude"))
@@ -610,6 +623,7 @@ suspend fun queryTruckStopsNearLocation(
                                     phoneNumber = phone,
                                     websiteUrl = website,
                                     amenities = amenities,
+                                    photoUrls = photoUrlsList,
                                     isOpen24Hours = true
                                 )
                             )
