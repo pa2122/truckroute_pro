@@ -163,6 +163,16 @@ fun getBrandMarkerIcon(context: Context, stopName: String): BitmapDescriptor {
     return BitmapDescriptorFactory.fromBitmap(bitmap)
 }
 
+fun formatDurationMins(mins: Int): String {
+    val hours = mins / 60
+    val remainingMins = mins % 60
+    return if (hours > 0) {
+        if (remainingMins > 0) "${hours}h ${remainingMins}m" else "${hours}h"
+    } else {
+        "${remainingMins}m"
+    }
+}
+
 @Composable
 fun TruckLvrMapScreen(
     truckProfile: TruckProfile,
@@ -503,7 +513,7 @@ fun TruckLvrMapScreen(
             }
         }
 
-        // Top Navigation Header: Green Turn-by-Turn Banner during Active Trip, or Search Bar
+        // Top Navigation Header: Green Floating Turn-by-Turn Banner, or Floating Top-Left Hamburger Button
         val activeNavRes = routeResult
         if (isNavigating && activeNavRes != null && activeNavRes.navSteps.isNotEmpty()) {
             val activeStep = activeNavRes.navSteps.getOrNull(activeStepIndex.coerceIn(0, activeNavRes.navSteps.size - 1))
@@ -511,10 +521,11 @@ fun TruckLvrMapScreen(
 
             Surface(
                 color = Color(0xFF0F9D58),
-                shape = RoundedCornerShape(bottomStart = 20.dp, bottomEnd = 20.dp),
+                shape = RoundedCornerShape(16.dp),
                 shadowElevation = 8.dp,
                 modifier = Modifier
                     .fillMaxWidth()
+                    .padding(12.dp)
                     .align(Alignment.TopCenter)
             ) {
                 Column(
@@ -610,45 +621,25 @@ fun TruckLvrMapScreen(
                 }
             }
         } else {
-            // Sleek Compact Top Bar (Clean Design)
+            // Floating Hamburger Menu Button (Top-Left)
             Surface(
                 color = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
-                shape = RoundedCornerShape(16.dp),
+                shape = CircleShape,
                 shadowElevation = 6.dp,
                 modifier = Modifier
-                    .fillMaxWidth()
                     .padding(12.dp)
-                    .align(Alignment.TopCenter)
+                    .align(Alignment.TopStart)
             ) {
-                Row(
-                    modifier = Modifier.padding(8.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                IconButton(
+                    onClick = onOpenDrawer,
+                    modifier = Modifier.size(48.dp)
                 ) {
-                    Button(
-                        onClick = onOpenDrawer,
-                        shape = CircleShape,
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surfaceVariant, contentColor = MaterialTheme.colorScheme.onSurfaceVariant),
-                        contentPadding = PaddingValues(0.dp),
-                        modifier = Modifier.size(44.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Menu,
-                            contentDescription = "Open Sidebar",
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
-
-                    Button(
-                        onClick = { showAddressDialog = true },
-                        shape = RoundedCornerShape(22.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primaryContainer, contentColor = MaterialTheme.colorScheme.onPrimaryContainer),
-                        modifier = Modifier
-                            .weight(1f)
-                            .padding(horizontal = 8.dp)
-                    ) {
-                        Text(if (destinationAddressText.isNotBlank()) destinationAddressText else "Search Destination", maxLines = 1, fontWeight = FontWeight.Bold)
-                    }
+                    Icon(
+                        imageVector = Icons.Default.Menu,
+                        contentDescription = "Open Sidebar",
+                        modifier = Modifier.size(26.dp),
+                        tint = MaterialTheme.colorScheme.onSurface
+                    )
                 }
             }
         }
@@ -1010,7 +1001,7 @@ fun TruckLvrMapScreen(
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
                                         Text(
-                                            "   |   ${String.format(Locale.US, "%.1f", leg.distanceMiles)} mi (${leg.durationMins} mins)",
+                                            "   |   ${String.format(Locale.US, "%.1f", leg.distanceMiles)} mi (${formatDurationMins(leg.durationMins)})",
                                             style = MaterialTheme.typography.labelMedium,
                                             fontWeight = FontWeight.ExtraBold,
                                             color = MaterialTheme.colorScheme.primary
@@ -1045,7 +1036,7 @@ fun TruckLvrMapScreen(
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Text(
-                                        "   |   ${String.format(Locale.US, "%.1f", res.distanceMiles)} mi (${res.durationMins} mins)",
+                                        "   |   ${String.format(Locale.US, "%.1f", res.distanceMiles)} mi (${formatDurationMins(res.durationMins)})",
                                         style = MaterialTheme.typography.labelMedium,
                                         fontWeight = FontWeight.ExtraBold,
                                         color = MaterialTheme.colorScheme.primary
