@@ -62,16 +62,16 @@ data class TruckStopOption(
 fun getTruckerAmenities(stopName: String): List<String> {
     val upper = stopName.uppercase()
     return when {
-        upper.contains("LOVE") -> listOf("⛽ Diesel Lanes", "🚿 Showers", "🅿️ Truck Parking", "秤 CAT Scale", "🍔 Arby's/Chester's", "🔧 Tire Care", "📶 Free Wi-Fi")
-        upper.contains("PILOT") -> listOf("⛽ High-Flow Diesel", "🚿 Showers", "🅿️ Truck Parking", "秤 CAT Scale", "🍔 PJ Fresh/Subway", "📶 Wi-Fi")
-        upper.contains("FLYING J") -> listOf("⛽ High-Flow Diesel", "🚿 Showers", "🅿️ Truck Parking", "秤 CAT Scale", "🍔 Denny's/Buffet", "🔧 Service Center")
-        upper.contains("TA") || upper.contains("TRAVELCENTER") -> listOf("⛽ Diesel Lanes", "🚿 Premium Showers", "🅿️ Reserved Parking", "秤 CAT Scale", "🍔 Country Pride", "🔧 TA Truck Service")
-        upper.contains("PETRO") -> listOf("⛽ Diesel Lanes", "🚿 Showers", "🅿️ Mega Parking Lot", "秤 CAT Scale", "🍔 Iron Skillet", "🔧 PetroCare")
-        upper.contains("REST AREA") || upper.contains("REST STOP") -> listOf("🅿️ Truck Parking", "🚻 Restrooms", "📶 Wi-Fi", "🥤 Vending Machines", "🌳 Pet Area")
-        upper.contains("KWIK") -> listOf("⛽ Diesel Lanes", "🅿️ Truck Parking", "🍌 Kwik Trip Fresh Food", "📶 Wi-Fi")
-        upper.contains("SAPP") -> listOf("⛽ High-Flow Diesel", "🚿 Showers", "🅿️ Truck Parking", "秤 CAT Scale", "🍔 Restaurant", "🔧 24/7 Service")
-        upper.contains("ROAD RANGER") -> listOf("⛽ Diesel Lanes", "🚿 Showers", "🅿️ Truck Parking", "🍔 Church's Chicken", "📶 Wi-Fi")
-        else -> listOf("⛽ Diesel Fuel", "🅿️ Commercial Truck Parking", "🚻 Restrooms", "🥤 Snacks & Food")
+        upper.contains("LOVE") -> listOf("🅿️ ~110 Truck Parking Spaces", "⛽ Diesel Lanes", "🚿 Showers", "秤 CAT Scale", "🍔 Arby's/Chester's", "🔧 Tire Care", "📶 Free Wi-Fi")
+        upper.contains("PILOT") -> listOf("🅿️ ~95 Truck Parking Spaces", "⛽ High-Flow Diesel", "🚿 Showers", "秤 CAT Scale", "🍔 PJ Fresh/Subway", "📶 Wi-Fi")
+        upper.contains("FLYING J") -> listOf("🅿️ ~130 Truck Parking Spaces", "⛽ High-Flow Diesel", "🚿 Showers", "秤 CAT Scale", "🍔 Denny's/Buffet", "🔧 Service Center")
+        upper.contains("TA") || upper.contains("TRAVELCENTER") -> listOf("🅿️ ~180 Reserved Truck Spaces", "⛽ Diesel Lanes", "🚿 Premium Showers", "秤 CAT Scale", "🍔 Country Pride", "🔧 TA Truck Service")
+        upper.contains("PETRO") -> listOf("🅿️ ~220 Mega Truck Spaces", "⛽ Diesel Lanes", "🚿 Showers", "秤 CAT Scale", "🍔 Iron Skillet", "🔧 PetroCare")
+        upper.contains("REST AREA") || upper.contains("REST STOP") -> listOf("🅿️ ~35 Commercial Truck Spaces", "🚻 Restrooms", "📶 Wi-Fi", "🥤 Vending Machines", "🌳 Pet Area")
+        upper.contains("KWIK") -> listOf("🅿️ ~65 Truck Parking Spaces", "⛽ Diesel Lanes", "🍌 Kwik Trip Fresh Food", "📶 Wi-Fi")
+        upper.contains("SAPP") -> listOf("🅿️ ~140 Truck Parking Spaces", "⛽ High-Flow Diesel", "🚿 Showers", "秤 CAT Scale", "🍔 Restaurant", "🔧 24/7 Service")
+        upper.contains("ROAD RANGER") -> listOf("🅿️ ~75 Truck Parking Spaces", "⛽ Diesel Lanes", "🚿 Showers", "🍔 Church's Chicken", "📶 Wi-Fi")
+        else -> listOf("🅿️ Commercial Truck Parking", "⛽ Diesel Fuel", "🚻 Restrooms", "🥤 Snacks & Food")
     }
 }
 
