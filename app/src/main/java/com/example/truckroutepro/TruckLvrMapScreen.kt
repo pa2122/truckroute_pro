@@ -90,6 +90,7 @@ import com.google.android.gms.maps.model.LatLngBounds
 import com.google.android.gms.maps.model.RoundCap
 import com.google.maps.android.compose.GoogleMap
 import com.google.maps.android.compose.MapProperties
+import com.google.maps.android.compose.MapType
 import com.google.maps.android.compose.MapUiSettings
 import com.google.maps.android.compose.Marker
 import com.google.maps.android.compose.MarkerState
@@ -282,6 +283,7 @@ fun TruckLvrMapScreen(
     var specificSearchResults by remember { mutableStateOf<List<TruckStopOption>>(emptyList()) }
     var searchJob by remember { mutableStateOf<Job?>(null) }
     var isNavigating by remember { mutableStateOf(false) }
+    var isSatelliteMode by remember { mutableStateOf(false) }
     var activeStepIndex by remember { mutableIntStateOf(0) }
     var bottomHudHeightPx by remember { mutableIntStateOf(0) }
 
@@ -459,7 +461,8 @@ fun TruckLvrMapScreen(
             modifier = Modifier.fillMaxSize(),
             cameraPositionState = cameraPositionState,
             properties = MapProperties(
-                isMyLocationEnabled = hasLocationPermission
+                isMyLocationEnabled = hasLocationPermission,
+                mapType = if (isSatelliteMode) MapType.HYBRID else MapType.NORMAL
             ),
             uiSettings = MapUiSettings(
                 zoomControlsEnabled = false,
@@ -1562,6 +1565,25 @@ fun TruckLvrMapScreen(
                 .align(Alignment.BottomEnd)
                 .padding(bottom = bottomHudHeightDp + 16.dp, end = 16.dp)
         ) {
+            // Satellite / Hybrid Mode Toggle Button (Above Zoom +)
+            Button(
+                onClick = { isSatelliteMode = !isSatelliteMode },
+                shape = CircleShape,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = if (isSatelliteMode) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
+                    contentColor = if (isSatelliteMode) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
+                ),
+                elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp),
+                modifier = Modifier.size(48.dp),
+                contentPadding = PaddingValues(0.dp)
+            ) {
+                Text(
+                    if (isSatelliteMode) "SAT" else "MAP",
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
             // Zoom In (+)
             Button(
                 onClick = {
