@@ -64,7 +64,7 @@ fun PlacesSearchTextField(
                 if (cleanInput.length >= 2) {
                     isLoading = true
                     searchJob = scope.launch {
-                        delay(600L)
+                        delay(200L)
                         val results = TruckPlacesService.getPlacePredictions(apiKey, cleanInput)
                         predictions = results
                         isLoading = false
@@ -122,6 +122,14 @@ fun PlacesSearchTextField(
                                             SearchHistoryManager.addSearchItem(context, details.name, details.formattedAddress, details.location)
                                             recentSearches = SearchHistoryManager.getRecentSearches(context)
                                             onPlaceSelected(details)
+                                        } else {
+                                            val fallbackDetails = PlaceDetailsResult(
+                                                placeId = p.placeId,
+                                                name = p.primaryText,
+                                                formattedAddress = p.fullDescription,
+                                                location = LatLng(0.0, 0.0)
+                                            )
+                                            onPlaceSelected(fallbackDetails)
                                         }
                                     }
                                 }

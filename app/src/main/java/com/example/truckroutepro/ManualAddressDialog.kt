@@ -2,12 +2,13 @@ package com.example.truckroutepro
 
 import android.content.Context
 import android.location.Geocoder
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -16,9 +17,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -27,7 +26,6 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -43,10 +41,10 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.PopupProperties
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.google.android.gms.maps.model.LatLng
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -112,27 +110,56 @@ fun ManualAddressDialog(
         } catch (_: Exception) {}
     }
 
-    AlertDialog(
+    Dialog(
         onDismissRequest = onDismiss,
-        title = {
-            Text(
-                "Route & Places Search",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            )
-        },
-        text = {
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Surface(
+            shape = RoundedCornerShape(24.dp),
+            color = MaterialTheme.colorScheme.surface,
+            shadowElevation = 12.dp,
+            modifier = Modifier
+                .fillMaxWidth(0.92f)
+                .padding(vertical = 16.dp)
+        ) {
             Column(
-                modifier = Modifier.verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+                modifier = Modifier
+                    .padding(20.dp)
+                    .heightIn(max = 580.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-                Text(
-                    "Search places, truck stops, or addresses using Google Places live autocomplete.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.secondary
-                )
+                // Header Row with Title & Close Button
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            "Route & Places Search",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Text(
+                            "Search places, truck stops, or addresses using Google Places",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.secondary
+                        )
+                    }
 
-                // Origin Search Field (Read-only by default with Pencil Edit icon & Cancel icon when editing)
+                    IconButton(onClick = onDismiss) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Close Dialog"
+                        )
+                    }
+                }
+
+                HorizontalDivider()
+
+                // Origin Search Field (Read-only by default with Pencil Edit icon)
                 if (!isEditingOrigin) {
                     OutlinedTextField(
                         value = originInput,
@@ -147,7 +174,7 @@ fun ManualAddressDialog(
                                     originLatLng = null
                                     scope.launch {
                                         delay(100)
-                                        originFocusRequester.requestFocus()
+                                        try { originFocusRequester.requestFocus() } catch (_: Exception) {}
                                     }
                                 }
                             ) {
@@ -191,7 +218,7 @@ fun ManualAddressDialog(
                     )
                 }
 
-                // Final Destination / Consignee Search Field (Default active focused text box)
+                // Final Destination / Consignee Search Field
                 PlacesSearchTextField(
                     value = destInput,
                     onValueChange = {
@@ -232,7 +259,7 @@ fun ManualAddressDialog(
                             IconButton(
                                 onClick = { waypointsList.removeAt(index) }
                             ) {
-                                Text("Remove")
+                                Icon(Icons.Default.Close, contentDescription = "Remove Stop")
                             }
                         }
                     }
@@ -257,60 +284,71 @@ fun ManualAddressDialog(
                         color = MaterialTheme.colorScheme.error
                     )
                 }
-            }
-        },
-        confirmButton = {
-            Button(
-                enabled = destInput.isNotBlank() && !isGeocoding,
-                onClick = {
-                    isGeocoding = true
-                    errorMessage = ""
-                    scope.launch {
-                        val finalOriginLatLng = originLatLng ?: if (originInput.isNotBlank() && !originInput.equals("Current GPS Location", ignoreCase = true)) {
-                            geocodeAddress(context, originInput)
-                        } else null
 
-                        val finalDestLatLng = destLatLng ?: geocodeAddress(context, destInput)
+                // Action Buttons Row (Cancel & Calculate Route)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(22.dp)
+                    ) {
+                        Text("Cancel")
+                    }
 
-                        val resolvedWaypoints = mutableListOf<LatLng>()
-                        val resolvedAddresses = mutableListOf<String>()
+                    Button(
+                        enabled = destInput.isNotBlank() && !isGeocoding,
+                        onClick = {
+                            isGeocoding = true
+                            errorMessage = ""
+                            scope.launch {
+                                val finalOriginLatLng = originLatLng ?: if (originInput.isNotBlank() && !originInput.equals("Current GPS Location", ignoreCase = true)) {
+                                    geocodeAddress(context, originInput)
+                                } else null
 
-                        for (w in waypointsList) {
-                            if (w.addressText.isNotBlank()) {
-                                val loc = w.resolvedLatLng ?: geocodeAddress(context, w.addressText)
-                                if (loc != null) {
-                                    resolvedWaypoints.add(loc)
-                                    resolvedAddresses.add(w.addressText)
+                                val finalDestLatLng = destLatLng ?: geocodeAddress(context, destInput)
+
+                                val resolvedWaypoints = mutableListOf<LatLng>()
+                                val resolvedAddresses = mutableListOf<String>()
+
+                                for (w in waypointsList) {
+                                    if (w.addressText.isNotBlank()) {
+                                        val loc = w.resolvedLatLng ?: geocodeAddress(context, w.addressText)
+                                        if (loc != null) {
+                                            resolvedWaypoints.add(loc)
+                                            resolvedAddresses.add(w.addressText)
+                                        }
+                                    }
+                                }
+
+                                isGeocoding = false
+
+                                if (finalDestLatLng != null) {
+                                    onMultiStopRouteCalculated(
+                                        originInput,
+                                        finalOriginLatLng,
+                                        destInput,
+                                        finalDestLatLng,
+                                        resolvedWaypoints,
+                                        resolvedAddresses
+                                    )
+                                } else {
+                                    errorMessage = "Could not locate destination place. Please select a Google Places prediction or check spelling."
                                 }
                             }
-                        }
-
-                        isGeocoding = false
-
-                        if (finalDestLatLng != null) {
-                            onMultiStopRouteCalculated(
-                                originInput,
-                                finalOriginLatLng,
-                                destInput,
-                                finalDestLatLng,
-                                resolvedWaypoints,
-                                resolvedAddresses
-                            )
-                        } else {
-                            errorMessage = "Could not locate destination place. Please select a Google Places prediction or check spelling."
-                        }
+                        },
+                        modifier = Modifier.weight(1.4f),
+                        shape = RoundedCornerShape(22.dp)
+                    ) {
+                        Text(if (isGeocoding) "Finding Places..." else "Calculate Route", fontWeight = FontWeight.Bold)
                     }
                 }
-            ) {
-                Text(if (isGeocoding) "Finding Places..." else "Calculate Route")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel")
             }
         }
-    )
+    }
 }
 
 private suspend fun geocodeAddress(context: Context, addressText: String): LatLng? = withContext(Dispatchers.IO) {
