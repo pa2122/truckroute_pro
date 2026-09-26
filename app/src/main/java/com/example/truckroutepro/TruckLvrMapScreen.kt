@@ -786,25 +786,31 @@ fun TruckLvrMapScreen(
                         )
                     }
 
-                    Button(
+                    Surface(
                         onClick = {
                             isEditingOriginFromMap = false
                             showAddressDialog = true
                         },
                         shape = RoundedCornerShape(22.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.primaryContainer,
-                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                        ),
+                        color = MaterialTheme.colorScheme.primaryContainer,
                         modifier = Modifier
                             .weight(1f)
-                            .padding(horizontal = 8.dp)
+                            .height(40.dp)
+                            .padding(horizontal = 4.dp)
                     ) {
-                        Text(
-                            if (destinationAddressText.isNotBlank()) destinationAddressText else "Search Destination",
-                            maxLines = 1,
-                            fontWeight = FontWeight.Bold
-                        )
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(horizontal = 12.dp)
+                        ) {
+                            Text(
+                                if (destinationAddressText.isNotBlank()) destinationAddressText else "Search Destination",
+                                maxLines = 1,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                        }
                     }
                 }
             }
