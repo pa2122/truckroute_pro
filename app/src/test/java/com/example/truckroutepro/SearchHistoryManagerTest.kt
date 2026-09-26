@@ -5,14 +5,16 @@ import android.content.SharedPreferences
 import com.google.android.gms.maps.model.LatLng
 import io.mockk.every
 import io.mockk.mockk
-import io.mockk.verify
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
-import org.json.JSONArray
-import org.json.JSONObject
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
+@RunWith(RobolectricTestRunner::class)
+@Config(manifest = Config.NONE)
 class SearchHistoryManagerTest {
 
     private lateinit var mockContext: Context
@@ -57,7 +59,7 @@ class SearchHistoryManagerTest {
 
         // Add first search
         SearchHistoryManager.addSearchItem(mockContext, "Stop 1", "Address 1", latLng1)
-        
+
         // Mock the prefs to return the updated json
         every { mockPrefs.getString("recent_searches_json", null) } answers { savedJson }
 
@@ -109,21 +111,21 @@ class SearchHistoryManagerTest {
 
         SearchHistoryManager.addSearchItem(mockContext, "Dup", "Address 1", LatLng(30.0, -90.0))
         every { mockPrefs.getString("recent_searches_json", null) } answers { savedJson }
-        
+
         SearchHistoryManager.addSearchItem(mockContext, "Other", "Address 2", LatLng(31.0, -91.0))
         every { mockPrefs.getString("recent_searches_json", null) } answers { savedJson }
-        
+
         // Add the duplicate again (same address)
         SearchHistoryManager.addSearchItem(mockContext, "Dup", "Address 1", LatLng(30.0, -90.0))
         every { mockPrefs.getString("recent_searches_json", null) } answers { savedJson }
 
         val searches = SearchHistoryManager.getRecentSearches(mockContext)
         assertEquals(2, searches.size) // No duplicates
-        
+
         // The duplicate should be moved to the top
         assertEquals("Dup", searches[0].title)
         assertEquals("Address 1", searches[0].formattedAddress)
-        
+
         assertEquals("Other", searches[1].title)
         assertEquals("Address 2", searches[1].formattedAddress)
     }

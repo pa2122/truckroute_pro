@@ -10,6 +10,10 @@ import kotlin.math.abs
 
 object TruckLvrRoutingService {
 
+    var urlConnectionFactory: (String) -> HttpURLConnection = { urlStr ->
+        URL(urlStr).openConnection() as HttpURLConnection
+    }
+
     suspend fun computeTruckRoute(
         apiKey: String,
         origin: LatLng,
@@ -56,8 +60,8 @@ object TruckLvrRoutingService {
             val waypointsParam = if (waypoints.isNotEmpty()) {
                 "&waypoints=" + waypoints.joinToString("|") { "${it.latitude},${it.longitude}" }
             } else ""
-            val url = URL("https://maps.googleapis.com/maps/api/directions/json?origin=${origin.latitude},${origin.longitude}&destination=${destination.latitude},${destination.longitude}$waypointsParam&alternatives=true&key=$apiKey")
-            val conn = url.openConnection() as HttpURLConnection
+            val urlString = "https://maps.googleapis.com/maps/api/directions/json?origin=${origin.latitude},${origin.longitude}&destination=${destination.latitude},${destination.longitude}$waypointsParam&alternatives=true&key=$apiKey"
+            val conn = urlConnectionFactory(urlString)
             conn.requestMethod = "GET"
             conn.connectTimeout = 8000
             conn.readTimeout = 8000

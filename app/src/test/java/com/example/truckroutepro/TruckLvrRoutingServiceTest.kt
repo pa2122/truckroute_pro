@@ -3,12 +3,10 @@ package com.example.truckroutepro
 import com.google.android.gms.maps.model.LatLng
 import io.mockk.every
 import io.mockk.mockk
-import io.mockk.mockkConstructor
 import io.mockk.unmockkAll
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
-import org.junit.Before
 import org.junit.Test
 import java.io.ByteArrayInputStream
 import java.net.HttpURLConnection
@@ -25,13 +23,9 @@ class TruckLvrRoutingServiceTest {
     private val testDestination = LatLng(36.1699, -115.1398)
     private val testProfile = TruckProfile()
 
-    @Before
-    fun setup() {
-        mockkConstructor(URL::class)
-    }
-
     @After
     fun teardown() {
+        TruckLvrRoutingService.urlConnectionFactory = { URL(it).openConnection() as HttpURLConnection }
         unmockkAll()
     }
 
@@ -41,7 +35,7 @@ class TruckLvrRoutingServiceTest {
             apiKey = "",
             origin = testOrigin,
             destination = testDestination,
-            profile = testProfile
+            profile = testProfile,
         )
 
         assertEquals("Map API key missing. Displaying direct path.", result.warningMessage)
@@ -54,8 +48,8 @@ class TruckLvrRoutingServiceTest {
     @Test
     fun `computeTruckRoute parses valid JSON route correctly`() = runTest {
         val mockConnection = mockk<HttpURLConnection>()
-        
-        every { anyConstructed<URL>().openConnection() } returns mockConnection
+        TruckLvrRoutingService.urlConnectionFactory = { mockConnection }
+
         every { mockConnection.requestMethod = any() } returns Unit
         every { mockConnection.connectTimeout = any() } returns Unit
         every { mockConnection.readTimeout = any() } returns Unit
@@ -83,7 +77,7 @@ class TruckLvrRoutingServiceTest {
                 ]
             }
         """.trimIndent()
-        
+
         every { mockConnection.inputStream } returns ByteArrayInputStream(validJson.toByteArray())
 
         val result = TruckLvrRoutingService.computeTruckRoute(
@@ -92,10 +86,11 @@ class TruckLvrRoutingServiceTest {
             destination = testDestination,
             originAddress = "LA",
             destinationAddress = "Vegas",
-            profile = testProfile
+            profile = testProfile,
         )
 
-        assertEquals("", result.warningMessage) // No fallback warning
+        val expectedWarningMsg = "LVR Truck Safe Route Verified: Clears ${testProfile.formattedHeight} | Max ${testProfile.weightLbs.toInt()} lbs | Governed 65 MPH"
+        assertEquals(expectedWarningMsg, result.warningMessage)
         // 400000 meters in miles is ~248.548
         assertEquals(248.549, result.distanceMiles, 0.01)
         // 14400 seconds is 240 mins
