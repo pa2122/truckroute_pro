@@ -155,6 +155,17 @@ fun TruckRouteProApp() {
 
                     HorizontalDivider()
 
+                    NavigationDrawerItem(
+                        label = { Text("Developer Options & Feedback") },
+                        selected = currentScreen == "developer",
+                        onClick = {
+                            currentScreen = "developer"
+                            scope.launch { drawerState.close() }
+                        }
+                    )
+
+                    HorizontalDivider()
+
                     // Navigation Section Dropdown
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -326,6 +337,9 @@ fun TruckRouteProApp() {
                     onBack = { currentScreen = "home" },
                     onOpenDrawer = { scope.launch { drawerState.open() } }
                 )
+            }
+            "developer" -> {
+                DeveloperOptionsScreen(onBack = { currentScreen = "map" })
             }
             else -> {
                 Scaffold { innerPadding ->
