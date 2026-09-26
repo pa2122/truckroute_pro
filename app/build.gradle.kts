@@ -72,7 +72,14 @@ dependencies {
     // Markdown
     implementation("com.github.jeziellago:compose-markdown:0.5.6")
 
+    // Unit Testing
     testImplementation("junit:junit:4.13.2")
+    testImplementation("io.mockk:mockk:1.13.10")
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.0")
+    testImplementation("org.robolectric:robolectric:4.12.1")
+    testImplementation("com.google.truth:truth:1.4.2")
+
+    // UI Testing
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.6.1")
     androidTestImplementation(platform("androidx.compose:compose-bom:2025.02.00"))
