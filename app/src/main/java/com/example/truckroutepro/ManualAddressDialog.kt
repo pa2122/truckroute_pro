@@ -84,12 +84,14 @@ fun ManualAddressDialog(
     val scope = rememberCoroutineScope()
     val apiKey = "AIzaSyAcscUaSZ1EGCuTGb81kgLD4ul92DXpn5E"
 
-    var isEditingOrigin by remember { mutableStateOf(initialEditingOrigin) }
-    var originInput by remember { mutableStateOf(if (initialEditingOrigin) "" else initialOrigin.ifBlank { "Current GPS Location" }) }
-    var originLatLng by remember { mutableStateOf<LatLng?>(null) }
+    var isEditingOrigin by remember(initialEditingOrigin) { mutableStateOf(initialEditingOrigin) }
+    var originInput by remember(initialOrigin, initialEditingOrigin) {
+        mutableStateOf(if (initialEditingOrigin) "" else initialOrigin.ifBlank { "Current GPS Location" })
+    }
+    var originLatLng by remember(initialOrigin) { mutableStateOf<LatLng?>(null) }
 
-    var destInput by remember { mutableStateOf(initialDestination) }
-    var destLatLng by remember { mutableStateOf<LatLng?>(null) }
+    var destInput by remember(initialDestination) { mutableStateOf(initialDestination) }
+    var destLatLng by remember(initialDestination) { mutableStateOf<LatLng?>(null) }
 
     val originFocusRequester = remember { FocusRequester() }
     val destFocusRequester = remember { FocusRequester() }
@@ -100,12 +102,14 @@ fun ManualAddressDialog(
     var isGeocoding by remember { mutableStateOf(false) }
 
     LaunchedEffect(initialEditingOrigin) {
-        delay(100)
-        if (initialEditingOrigin) {
-            originFocusRequester.requestFocus()
-        } else {
-            destFocusRequester.requestFocus()
-        }
+        try {
+            delay(250)
+            if (initialEditingOrigin) {
+                originFocusRequester.requestFocus()
+            } else {
+                destFocusRequester.requestFocus()
+            }
+        } catch (_: Exception) {}
     }
 
     AlertDialog(

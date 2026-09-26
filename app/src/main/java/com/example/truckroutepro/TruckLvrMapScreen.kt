@@ -787,7 +787,10 @@ fun TruckLvrMapScreen(
                     }
 
                     Button(
-                        onClick = { showAddressDialog = true },
+                        onClick = {
+                            isEditingOriginFromMap = false
+                            showAddressDialog = true
+                        },
                         shape = RoundedCornerShape(22.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = MaterialTheme.colorScheme.primaryContainer,
