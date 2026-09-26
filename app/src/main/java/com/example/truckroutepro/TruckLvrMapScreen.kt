@@ -20,6 +20,9 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -40,6 +43,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -48,6 +52,8 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -58,6 +64,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -73,7 +80,9 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import coil.compose.AsyncImage
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.dp
 import android.os.Looper
 import androidx.core.content.ContextCompat
@@ -104,6 +113,8 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.text.SimpleDateFormat
+import java.util.Calendar
 import java.util.Locale
 import kotlin.math.abs
 
@@ -288,6 +299,28 @@ fun TruckLvrMapScreen(
     var isSatelliteMode by remember { mutableStateOf(false) }
     var activeStepIndex by remember { mutableIntStateOf(0) }
     var bottomHudHeightPx by remember { mutableIntStateOf(0) }
+
+    val voiceGuidance = remember { TruckVoiceGuidance(context) }
+    var isVoiceMuted by remember { mutableStateOf(false) }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            voiceGuidance.shutdown()
+        }
+    }
+
+    LaunchedEffect(isNavigating, activeStepIndex, routeResult) {
+        if (isNavigating) {
+            val steps = routeResult?.navSteps
+            if (steps != null && steps.isNotEmpty()) {
+                val currentStep = steps.getOrNull(activeStepIndex)
+                if (currentStep != null) {
+                    val promptText = "${currentStep.distanceText}, ${currentStep.instruction}"
+                    voiceGuidance.speakInstruction(promptText)
+                }
+            }
+        }
+    }
 
     val density = LocalDensity.current
     val bottomHudHeightDp = with(density) { bottomHudHeightPx.toDp() }
@@ -571,16 +604,16 @@ fun TruckLvrMapScreen(
             }
         }
 
-        // Top Navigation Header: Green Floating Turn-by-Turn Banner, or Floating Top-Left Hamburger Button
+        // Top Navigation Header: Green Floating Turn-by-Turn Banner (Google Navigation Style)
         val activeNavRes = routeResult
         if (isNavigating && activeNavRes != null && activeNavRes.navSteps.isNotEmpty()) {
             val activeStep = activeNavRes.navSteps.getOrNull(activeStepIndex.coerceIn(0, activeNavRes.navSteps.size - 1))
             val nextStep = activeNavRes.navSteps.getOrNull(activeStepIndex + 1)
 
             Surface(
-                color = Color(0xFF0F9D58),
-                shape = RoundedCornerShape(16.dp),
-                shadowElevation = 8.dp,
+                color = Color(0xFF137333), // Google Navigation Dark Green
+                shape = RoundedCornerShape(18.dp),
+                shadowElevation = 10.dp,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(12.dp)
@@ -597,8 +630,8 @@ fun TruckLvrMapScreen(
                     ) {
                         Surface(
                             shape = CircleShape,
-                            color = Color.White.copy(alpha = 0.25f),
-                            modifier = Modifier.size(48.dp)
+                            color = Color.White.copy(alpha = 0.22f),
+                            modifier = Modifier.size(52.dp)
                         ) {
                             Box(contentAlignment = Alignment.Center) {
                                 Text(
@@ -606,9 +639,11 @@ fun TruckLvrMapScreen(
                                         "Right" -> "➔"
                                         "Left" -> "⬅"
                                         "U-Turn" -> "🔄"
+                                        "Keep Right" -> "↗"
+                                        "Keep Left" -> "↖"
                                         else -> "⬆"
                                     },
-                                    style = MaterialTheme.typography.titleLarge,
+                                    style = MaterialTheme.typography.headlineMedium,
                                     fontWeight = FontWeight.ExtraBold,
                                     color = Color.White
                                 )
@@ -631,15 +666,44 @@ fun TruckLvrMapScreen(
                             )
                         }
 
+                        // Action Controls: Voice Prompt Toggle & Step Navigation
                         Row(verticalAlignment = Alignment.CenterVertically) {
+                            TextButton(
+                                onClick = {
+                                    isVoiceMuted = !isVoiceMuted
+                                    voiceGuidance.isMuted = isVoiceMuted
+                                    if (!isVoiceMuted) {
+                                        val activePrompt = activeStep?.let { "${it.distanceText}, ${it.instruction}" } ?: "Voice guidance enabled"
+                                        voiceGuidance.speakInstruction(activePrompt, force = true)
+                                    }
+                                },
+                                contentPadding = PaddingValues(horizontal = 4.dp)
+                            ) {
+                                Text(
+                                    if (isVoiceMuted) "🔇" else "🔊",
+                                    style = MaterialTheme.typography.titleLarge
+                                )
+                            }
+
                             if (activeStepIndex > 0) {
                                 IconButton(
                                     onClick = {
                                         activeStepIndex--
                                         val prevStepObj = activeNavRes.navSteps.getOrNull(activeStepIndex)
                                         if (prevStepObj != null) {
+                                            val nextStepObj = activeNavRes.navSteps.getOrNull(activeStepIndex + 1)
+                                            val bearing = nextStepObj?.let { calculateBearing(prevStepObj.startLatLng, it.startLatLng) } ?: 0f
                                             scope.launch {
-                                                cameraPositionState.animate(CameraUpdateFactory.newLatLngZoom(prevStepObj.startLatLng, 16f))
+                                                cameraPositionState.animate(
+                                                    CameraUpdateFactory.newCameraPosition(
+                                                        CameraPosition.Builder()
+                                                            .target(prevStepObj.startLatLng)
+                                                            .zoom(17.5f)
+                                                            .tilt(55f)
+                                                            .bearing(bearing)
+                                                            .build()
+                                                    )
+                                                )
                                             }
                                         }
                                     }
@@ -654,8 +718,19 @@ fun TruckLvrMapScreen(
                                         activeStepIndex++
                                         val nextStepObj = activeNavRes.navSteps.getOrNull(activeStepIndex)
                                         if (nextStepObj != null) {
+                                            val futureStepObj = activeNavRes.navSteps.getOrNull(activeStepIndex + 1)
+                                            val bearing = futureStepObj?.let { calculateBearing(nextStepObj.startLatLng, it.startLatLng) } ?: 0f
                                             scope.launch {
-                                                cameraPositionState.animate(CameraUpdateFactory.newLatLngZoom(nextStepObj.startLatLng, 16f))
+                                                cameraPositionState.animate(
+                                                    CameraUpdateFactory.newCameraPosition(
+                                                        CameraPosition.Builder()
+                                                            .target(nextStepObj.startLatLng)
+                                                            .zoom(17.5f)
+                                                            .tilt(55f)
+                                                            .bearing(bearing)
+                                                            .build()
+                                                    )
+                                                )
                                             }
                                         }
                                     }
@@ -735,7 +810,8 @@ fun TruckLvrMapScreen(
         // Bottom HUD Route Summary & Expandable Options (Clean Design)
         val res = routeResult
         if (res != null) {
-            val cardElevation by animateDpAsState(
+            if (!isNavigating) {
+                val cardElevation by animateDpAsState(
                 targetValue = if (isSpecificSearching) 16.dp else 6.dp,
                 label = "cardElevation"
             )
@@ -1281,7 +1357,27 @@ fun TruckLvrMapScreen(
                             Button(
                                 onClick = {
                                     isNavigating = !isNavigating
-                                    fitRouteInCamera(res.polylinePoints)
+                                    if (isNavigating) {
+                                        val startPos = res.polylinePoints.firstOrNull() ?: userCurrentLocation
+                                        val nextPos = res.polylinePoints.getOrNull(1) ?: res.polylinePoints.lastOrNull()
+                                        if (startPos != null) {
+                                            val initialBearing = if (nextPos != null) calculateBearing(startPos, nextPos) else 0f
+                                            scope.launch {
+                                                cameraPositionState.animate(
+                                                    CameraUpdateFactory.newCameraPosition(
+                                                        CameraPosition.Builder()
+                                                            .target(startPos)
+                                                            .zoom(17.5f)
+                                                            .tilt(55f)
+                                                            .bearing(initialBearing)
+                                                            .build()
+                                                    )
+                                                )
+                                            }
+                                        }
+                                    } else {
+                                        fitRouteInCamera(res.polylinePoints)
+                                    }
                                 },
                                 shape = RoundedCornerShape(22.dp),
                                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
@@ -1293,7 +1389,144 @@ fun TruckLvrMapScreen(
                     }
                 }
             }
-        }
+        } else {
+                // Governed Speed Badge Overlay & Bottom Navigation HUD (Google Navigation Style)
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(bottom = 95.dp, start = 16.dp, end = 16.dp)
+                ) {
+                    // Bottom-Left Governed Speed Badge
+                    Surface(
+                    shape = CircleShape,
+                    color = Color.White,
+                    border = BorderStroke(3.dp, Color(0xFFD32F2F)),
+                    shadowElevation = 8.dp,
+                    modifier = Modifier
+                        .size(54.dp)
+                        .align(Alignment.BottomStart)
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Text(
+                            "GOV",
+                            style = TextStyle(fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Color.Black)
+                        )
+                        Text(
+                            "${truckProfile.maxSpeedMph}",
+                            style = TextStyle(fontSize = 17.sp, fontWeight = FontWeight.ExtraBold, color = Color.Black)
+                        )
+                        Text(
+                            "MPH",
+                            style = TextStyle(fontSize = 8.sp, fontWeight = FontWeight.Bold, color = Color.DarkGray)
+                        )
+                    }
+                }
+            }
+
+            // Bottom Navigation Trip Progress Card (Google Navigation Style)
+            Surface(
+                color = Color(0xFF1C1B1F), // Dark Google Nav Surface
+                shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+                shadowElevation = 12.dp,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .align(Alignment.BottomCenter)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            text = calculateETA(res.durationMins),
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = Color(0xFF1EA896) // Google Navigation Green
+                        )
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = formatDurationMins(res.durationMins),
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
+                            Text("•", color = Color.Gray)
+                            Text(
+                                text = "%.1f mi".format(res.distanceMiles),
+                                style = MaterialTheme.typography.titleMedium,
+                                color = Color.LightGray
+                            )
+                        }
+                    }
+
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // 3D Perspective Recenter Button
+                        Button(
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2C2C2E)),
+                            shape = CircleShape,
+                            contentPadding = PaddingValues(0.dp),
+                            modifier = Modifier.size(48.dp),
+                            onClick = {
+                                val steps = res.navSteps
+                                val currentStepObj = steps.getOrNull(activeStepIndex) ?: steps.firstOrNull()
+                                val nextStepObj = steps.getOrNull(activeStepIndex + 1)
+                                val currentPos = currentStepObj?.startLatLng ?: userCurrentLocation
+                                if (currentPos != null) {
+                                    val bearing = nextStepObj?.let { calculateBearing(currentPos, it.startLatLng) } ?: 0f
+                                    scope.launch {
+                                        cameraPositionState.animate(
+                                            CameraUpdateFactory.newCameraPosition(
+                                                CameraPosition.Builder()
+                                                    .target(currentPos)
+                                                    .zoom(17.5f)
+                                                    .tilt(55f)
+                                                    .bearing(bearing)
+                                                    .build()
+                                            )
+                                        )
+                                    }
+                                }
+                            }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.LocationOn,
+                                contentDescription = "Recenter 3D View",
+                                tint = Color.White
+                            )
+                        }
+
+                        // Exit Navigation Button
+                        Button(
+                            onClick = {
+                                isNavigating = false
+                                fitRouteInCamera(res.polylinePoints)
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD32F2F)),
+                            shape = CircleShape,
+                            contentPadding = PaddingValues(0.dp),
+                            modifier = Modifier.size(48.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "End Trip",
+                                tint = Color.White
+                            )
+                        }
+                    }
+                }
+            }
 
         // Floating Selected Location Detail Card with Rich Amenities & Actions
         val activeSelectedStop = selectedStopOption
@@ -1745,4 +1978,31 @@ fun TruckLvrMapScreen(
             onDismiss = { showTruckStopFinder = false }
         )
     }
+}
+}
+}
+
+fun calculateBearing(from: LatLng, to: LatLng): Float {
+    val lat1 = Math.toRadians(from.latitude)
+    val lon1 = Math.toRadians(from.longitude)
+    val lat2 = Math.toRadians(to.latitude)
+    val lon2 = Math.toRadians(to.longitude)
+
+    val dLon = lon2 - lon1
+    val y = Math.sin(dLon) * Math.cos(lat2)
+    val x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon)
+
+    var brng = Math.toDegrees(Math.atan2(y, x)).toFloat()
+    if (brng < 0) {
+        brng += 360f
+    }
+    return brng
+}
+
+fun calculateETA(durationMins: Int): String {
+    val calendar = Calendar.getInstance().apply {
+        add(Calendar.MINUTE, durationMins)
+    }
+    val sdf = SimpleDateFormat("h:mm a", Locale.US)
+    return sdf.format(calendar.time)
 }
