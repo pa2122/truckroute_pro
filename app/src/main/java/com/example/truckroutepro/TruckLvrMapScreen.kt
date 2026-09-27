@@ -142,7 +142,6 @@ fun getBrandMarkerIcon(context: Context, stopName: String): BitmapDescriptor {
         nameUpper.contains("ROAD RANGER") -> Triple(0xFF0288D1.toInt(), 0xFFFFFFFF.toInt(), "RANGER")
         nameUpper.contains("CASEY") -> Triple(0xFFD32F2F.toInt(), 0xFFFFFFFF.toInt(), "CASEY'S")
         nameUpper.contains("QUIKTRIP") || nameUpper.contains("QT") -> Triple(0xFFD32F2F.toInt(), 0xFFFFFFFF.toInt(), "QT")
-        nameUpper.contains("BUC-EE") || nameUpper.contains("BUCEE") -> Triple(0xFFFFD54F.toInt(), 0xFF000000.toInt(), "BUC-EE'S")
         nameUpper.contains("SHEETZ") -> Triple(0xFFC62828.toInt(), 0xFFFFFFFF.toInt(), "SHEETZ")
         nameUpper.contains("MAVERIK") -> Triple(0xFF1565C0.toInt(), 0xFFFFFFFF.toInt(), "MAVERIK")
         nameUpper.contains("SPEEDWAY") -> Triple(0xFFD32F2F.toInt(), 0xFFFFFFFF.toInt(), "SPEEDWAY")
@@ -397,7 +396,7 @@ fun TruckLvrMapScreen(
                         location = center,
                         routePolyline = listOf(center),
                         radiusMeters = 32186.8,
-                        searchQuery = "Casey's OR QuikTrip OR QT OR Buc-ee's OR rest area OR weigh station OR truck repair"
+                        searchQuery = "Casey's OR QuikTrip OR QT OR rest area OR weigh station OR truck repair"
                     )
                 }
                 val r1 = q1.await()
@@ -407,6 +406,10 @@ fun TruckLvrMapScreen(
                 val seenNames = mutableSetOf<String>()
 
                 for (s in r1 + r2) {
+                    val upperName = s.name.uppercase()
+                    if (upperName.contains("BUC-EE") || upperName.contains("BUCEE")) {
+                        continue // Buc-ee's strictly prohibits CMVs / 18-wheelers on their property
+                    }
                     val key = "${s.name.lowercase()}_${s.address.lowercase()}"
                     if (seenNames.add(key)) {
                         combined.add(s)
