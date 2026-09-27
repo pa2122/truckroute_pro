@@ -551,9 +551,9 @@ fun TruckLvrMapScreen(
                 mapType = selectedMapType
             ),
             uiSettings = MapUiSettings(
-                zoomControlsEnabled = true,
+                zoomControlsEnabled = false,
                 compassEnabled = true,
-                myLocationButtonEnabled = true,
+                myLocationButtonEnabled = false,
                 mapToolbarEnabled = true
             ),
             onMapLongClick = { latLng ->
@@ -2262,13 +2262,25 @@ fun TruckLvrMapScreen(
                 Text("-", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             }
 
-            // My Location / Recenter Button
-            Button(
+            // My Location / Target Recenter FAB (Google Maps Target Style)
+            FloatingActionButton(
                 onClick = {
                     val currentGps = userCurrentLocation
                     if (currentGps != null) {
                         scope.launch {
-                            cameraPositionState.animate(CameraUpdateFactory.newLatLngZoom(currentGps, 15f))
+                            if (isNavigating) {
+                                cameraPositionState.animate(
+                                    CameraUpdateFactory.newCameraPosition(
+                                        CameraPosition.Builder()
+                                            .target(currentGps)
+                                            .zoom(17.5f)
+                                            .tilt(55f)
+                                            .build()
+                                    )
+                                )
+                            } else {
+                                cameraPositionState.animate(CameraUpdateFactory.newLatLngZoom(currentGps, 16f))
+                            }
                         }
                     } else if (hasLocationPermission) {
                         try {
@@ -2277,7 +2289,7 @@ fun TruckLvrMapScreen(
                                     val currentLatLng = LatLng(loc.latitude, loc.longitude)
                                     userCurrentLocation = currentLatLng
                                     scope.launch {
-                                        cameraPositionState.animate(CameraUpdateFactory.newLatLngZoom(currentLatLng, 15f))
+                                        cameraPositionState.animate(CameraUpdateFactory.newLatLngZoom(currentLatLng, 16f))
                                     }
                                 }
                             }
@@ -2288,15 +2300,16 @@ fun TruckLvrMapScreen(
                         Toast.makeText(context, "Location permission required", Toast.LENGTH_SHORT).show()
                     }
                 },
-                shape = RoundedCornerShape(24.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                ),
-                elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp),
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp)
+                shape = CircleShape,
+                containerColor = MaterialTheme.colorScheme.surface,
+                contentColor = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(52.dp)
             ) {
-                Text("Recenter", fontWeight = FontWeight.Bold)
+                Icon(
+                    imageVector = Icons.Default.LocationOn,
+                    contentDescription = "My Location / Recenter",
+                    modifier = Modifier.size(26.dp)
+                )
             }
         }
     }
