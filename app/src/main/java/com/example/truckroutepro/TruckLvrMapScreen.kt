@@ -140,6 +140,12 @@ fun getBrandMarkerIcon(context: Context, stopName: String): BitmapDescriptor {
         nameUpper.contains("KWIK") -> Triple(0xFFC62828.toInt(), 0xFFFFFFFF.toInt(), "KWIK")
         nameUpper.contains("SAPP") -> Triple(0xFFF57C00.toInt(), 0xFFFFFFFF.toInt(), "SAPP")
         nameUpper.contains("ROAD RANGER") -> Triple(0xFF0288D1.toInt(), 0xFFFFFFFF.toInt(), "RANGER")
+        nameUpper.contains("CASEY") -> Triple(0xFFD32F2F.toInt(), 0xFFFFFFFF.toInt(), "CASEY'S")
+        nameUpper.contains("QUIKTRIP") || nameUpper.contains("QT") -> Triple(0xFFD32F2F.toInt(), 0xFFFFFFFF.toInt(), "QT")
+        nameUpper.contains("BUC-EE") || nameUpper.contains("BUCEE") -> Triple(0xFFFFD54F.toInt(), 0xFF000000.toInt(), "BUC-EE'S")
+        nameUpper.contains("SHEETZ") -> Triple(0xFFC62828.toInt(), 0xFFFFFFFF.toInt(), "SHEETZ")
+        nameUpper.contains("MAVERIK") -> Triple(0xFF1565C0.toInt(), 0xFFFFFFFF.toInt(), "MAVERIK")
+        nameUpper.contains("SPEEDWAY") -> Triple(0xFFD32F2F.toInt(), 0xFFFFFFFF.toInt(), "SPEEDWAY")
         else -> Triple(0xFFFF9800.toInt(), 0xFFFFFFFF.toInt(), "TRUCK")
     }
 
@@ -375,21 +381,38 @@ fun TruckLvrMapScreen(
         isFetchingNearbyCmv = true
         scope.launch {
             val apiKey = "AIzaSyAcscUaSZ1EGCuTGb81kgLD4ul92DXpn5E"
-            val queryText = when (selectedCmvCategory) {
-                "TRUCK_STOPS" -> "truck stop OR travel plaza OR diesel station"
-                "REST_AREAS" -> "rest area OR rest stop OR highway welcome center"
-                "SCALES" -> "weigh station OR scale house OR port of entry"
-                "REPAIRS" -> "truck repair OR commercial tire service OR semi trailer service"
-                else -> "truck stop OR travel plaza OR rest area OR weigh station OR truck repair"
-            }
             val stops = withContext(Dispatchers.IO) {
-                queryTruckStopsNearLocation(
-                    apiKey = apiKey,
-                    location = center,
-                    routePolyline = listOf(center),
-                    radiusMeters = 32186.8,
-                    searchQuery = queryText
-                )
+                val q1 = async {
+                    queryTruckStopsNearLocation(
+                        apiKey = apiKey,
+                        location = center,
+                        routePolyline = listOf(center),
+                        radiusMeters = 32186.8,
+                        searchQuery = "truck stop OR travel plaza OR diesel station OR truck fuel OR commercial diesel"
+                    )
+                }
+                val q2 = async {
+                    queryTruckStopsNearLocation(
+                        apiKey = apiKey,
+                        location = center,
+                        routePolyline = listOf(center),
+                        radiusMeters = 32186.8,
+                        searchQuery = "Casey's OR QuikTrip OR QT OR Buc-ee's OR rest area OR weigh station OR truck repair"
+                    )
+                }
+                val r1 = q1.await()
+                val r2 = q2.await()
+
+                val combined = mutableListOf<TruckStopOption>()
+                val seenNames = mutableSetOf<String>()
+
+                for (s in r1 + r2) {
+                    val key = "${s.name.lowercase()}_${s.address.lowercase()}"
+                    if (seenNames.add(key)) {
+                        combined.add(s)
+                    }
+                }
+                combined
             }
             val updatedStops = stops.map { s ->
                 val distMeters = computeDistanceMeters(center, s.location)
@@ -824,7 +847,6 @@ fun TruckLvrMapScreen(
 
         // Floating Truck Profile Info Overlay Card (Top-Left)
         if (!isInlineSearching) {
-            val cardTopPadding = if (routeResult == null) 124.dp else 74.dp
             Card(
                 onClick = onOpenDrawer,
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f)),
@@ -832,7 +854,7 @@ fun TruckLvrMapScreen(
                 elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
                 modifier = Modifier
                     .align(Alignment.TopStart)
-                    .padding(top = cardTopPadding, start = 12.dp)
+                    .padding(top = 74.dp, start = 12.dp)
             ) {
                 Column(
                     modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
@@ -1363,63 +1385,6 @@ fun TruckLvrMapScreen(
                                     }
                                     HorizontalDivider()
                                 }
-                            }
-                        }
-                    }
-                }
-                // 20-Mile CMV Category Filter Row (When No Route Active)
-                if (routeResult == null && !isInlineSearching) {
-                    Surface(
-                        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
-                        shape = RoundedCornerShape(16.dp),
-                        shadowElevation = 6.dp,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 8.dp, vertical = 4.dp)
-                                .horizontalScroll(rememberScrollState()),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                "20mi Nearby (${nearbyCmvStops.size}):",
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.padding(start = 4.dp, end = 2.dp)
-                            )
-
-                            val categories = listOf(
-                                "ALL" to "All",
-                                "TRUCK_STOPS" to "Truck Stops",
-                                "REST_AREAS" to "Rest Areas",
-                                "SCALES" to "Scales",
-                                "REPAIRS" to "Repairs"
-                            )
-
-                            categories.forEach { (catKey, catLabel) ->
-                                val isSelected = selectedCmvCategory == catKey
-                                FilterChip(
-                                    selected = isSelected,
-                                    onClick = {
-                                        selectedCmvCategory = catKey
-                                        userCurrentLocation?.let { fetchNearbyCmvLocations(it, force = true) }
-                                    },
-                                    label = {
-                                        Text(
-                                            catLabel,
-                                            style = MaterialTheme.typography.labelSmall,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                    },
-                                    colors = FilterChipDefaults.filterChipColors(
-                                        selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                                        selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
-                                    ),
-                                    modifier = Modifier.height(28.dp)
-                                )
                             }
                         }
                     }
