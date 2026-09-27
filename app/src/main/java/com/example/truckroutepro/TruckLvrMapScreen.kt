@@ -349,7 +349,7 @@ fun TruckLvrMapScreen(
     var specificStatusMessage by remember { mutableStateOf("") }
     var specificSearchResults by remember { mutableStateOf<List<TruckStopOption>>(emptyList()) }
     var searchJob by remember { mutableStateOf<Job?>(null) }
-    var isSatelliteMode by remember { mutableStateOf(false) }
+    var selectedMapType by remember { mutableStateOf(MapType.NORMAL) }
     var bottomHudHeightPx by remember { mutableIntStateOf(0) }
 
     var isVoiceMuted by remember { mutableStateOf(false) }
@@ -548,13 +548,13 @@ fun TruckLvrMapScreen(
             cameraPositionState = cameraPositionState,
             properties = MapProperties(
                 isMyLocationEnabled = hasLocationPermission,
-                mapType = if (isSatelliteMode) MapType.HYBRID else MapType.NORMAL
+                mapType = selectedMapType
             ),
             uiSettings = MapUiSettings(
-                zoomControlsEnabled = false,
-                compassEnabled = false,
-                myLocationButtonEnabled = false,
-                mapToolbarEnabled = false
+                zoomControlsEnabled = true,
+                compassEnabled = true,
+                myLocationButtonEnabled = true,
+                mapToolbarEnabled = true
             ),
             onMapLongClick = { latLng ->
                 longPressedLatLng = latLng
@@ -2194,22 +2194,33 @@ fun TruckLvrMapScreen(
                 .align(Alignment.BottomEnd)
                 .padding(bottom = bottomHudHeightDp + 16.dp, end = 16.dp)
         ) {
-            // Satellite / Hybrid Mode Toggle Button (Above Zoom +)
+            // Map Type View Toggle Button (MAP / SAT / HYB)
             Button(
-                onClick = { isSatelliteMode = !isSatelliteMode },
+                onClick = {
+                    selectedMapType = when (selectedMapType) {
+                        MapType.NORMAL -> MapType.SATELLITE
+                        MapType.SATELLITE -> MapType.HYBRID
+                        else -> MapType.NORMAL
+                    }
+                },
                 shape = CircleShape,
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = if (isSatelliteMode) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
-                    contentColor = if (isSatelliteMode) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
+                    containerColor = if (selectedMapType != MapType.NORMAL) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
+                    contentColor = if (selectedMapType != MapType.NORMAL) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
                 ),
                 elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp),
                 modifier = Modifier.size(48.dp),
                 contentPadding = PaddingValues(0.dp)
             ) {
                 Text(
-                    if (isSatelliteMode) "SAT" else "MAP",
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.Bold
+                    when (selectedMapType) {
+                        MapType.NORMAL -> "MAP"
+                        MapType.SATELLITE -> "SAT"
+                        MapType.HYBRID -> "HYB"
+                        else -> "MAP"
+                    },
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.ExtraBold
                 )
             }
 
