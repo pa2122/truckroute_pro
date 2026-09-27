@@ -145,7 +145,20 @@ fun getBrandMarkerIcon(context: Context, stopName: String): BitmapDescriptor {
         nameUpper.contains("SHEETZ") -> Triple(0xFFC62828.toInt(), 0xFFFFFFFF.toInt(), "SHEETZ")
         nameUpper.contains("MAVERIK") -> Triple(0xFF1565C0.toInt(), 0xFFFFFFFF.toInt(), "MAVERIK")
         nameUpper.contains("SPEEDWAY") -> Triple(0xFFD32F2F.toInt(), 0xFFFFFFFF.toInt(), "SPEEDWAY")
-        else -> Triple(0xFFFF9800.toInt(), 0xFFFFFFFF.toInt(), "TRUCK")
+        nameUpper.contains("EXXON") -> Triple(0xFF1565C0.toInt(), 0xFFFFFFFF.toInt(), "EXXON")
+        nameUpper.contains("SHELL") -> Triple(0xFFFBC02D.toInt(), 0xFFD32F2F.toInt(), "SHELL")
+        nameUpper.contains("CHEVRON") -> Triple(0xFF1976D2.toInt(), 0xFFFFFFFF.toInt(), "CHEVRON")
+        nameUpper.contains("VALERO") -> Triple(0xFF0288D1.toInt(), 0xFFFFFFFF.toInt(), "VALERO")
+        nameUpper.contains("BP") -> Triple(0xFF388E3C.toInt(), 0xFFFFFFFF.toInt(), "BP")
+        nameUpper.contains("CITGO") -> Triple(0xFFD32F2F.toInt(), 0xFFFFFFFF.toInt(), "CITGO")
+        nameUpper.contains("MARATHON") -> Triple(0xFF1976D2.toInt(), 0xFFFFFFFF.toInt(), "MARATHON")
+        nameUpper.contains("CIRCLE K") -> Triple(0xFFD32F2F.toInt(), 0xFFFFFFFF.toInt(), "CIRCLE K")
+        nameUpper.contains("7-ELEVEN") || nameUpper.contains("7-11") -> Triple(0xFF388E3C.toInt(), 0xFFFFFFFF.toInt(), "7-ELEVEN")
+        nameUpper.contains("TEXACO") -> Triple(0xFFD32F2F.toInt(), 0xFFFFFFFF.toInt(), "TEXACO")
+        else -> {
+            val shortBrand = stopName.split(" ", "-", "/").firstOrNull { it.isNotBlank() }?.uppercase()?.take(8) ?: "FUEL"
+            Triple(0xFF616161.toInt(), 0xFFFFFFFF.toInt(), shortBrand)
+        }
     }
 
     val resourceName = when {
@@ -409,6 +422,13 @@ fun TruckLvrMapScreen(
                     val upperName = s.name.uppercase()
                     if (upperName.contains("BUC-EE") || upperName.contains("BUCEE")) {
                         continue // Buc-ee's strictly prohibits CMVs / 18-wheelers on their property
+                    }
+                    // Exclude passenger car dealerships & car grocery/auto repair stores
+                    if (upperName.contains("FORD") || upperName.contains("TOYOTA") || upperName.contains("CHEVROLET") ||
+                        upperName.contains("CHEVY") || upperName.contains("HONDA") || upperName.contains("NISSAN") ||
+                        upperName.contains("BROOKSHIRE") || upperName.contains("WALMART") || upperName.contains("KROGER")
+                    ) {
+                        continue
                     }
                     val key = "${s.name.lowercase()}_${s.address.lowercase()}"
                     if (seenNames.add(key)) {
