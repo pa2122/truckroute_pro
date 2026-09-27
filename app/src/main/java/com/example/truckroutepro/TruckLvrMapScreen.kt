@@ -2192,77 +2192,9 @@ fun TruckLvrMapScreen(
             verticalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier
                 .align(Alignment.BottomEnd)
-                .padding(bottom = bottomHudHeightDp + 16.dp, end = 16.dp)
+                .padding(bottom = maxOf(bottomHudHeightDp + 16.dp, 100.dp), end = 16.dp)
         ) {
-            // Map Type View Toggle Button (MAP / SAT / HYB)
-            Button(
-                onClick = {
-                    selectedMapType = when (selectedMapType) {
-                        MapType.NORMAL -> MapType.SATELLITE
-                        MapType.SATELLITE -> MapType.HYBRID
-                        else -> MapType.NORMAL
-                    }
-                },
-                shape = CircleShape,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = if (selectedMapType != MapType.NORMAL) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
-                    contentColor = if (selectedMapType != MapType.NORMAL) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
-                ),
-                elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp),
-                modifier = Modifier.size(48.dp),
-                contentPadding = PaddingValues(0.dp)
-            ) {
-                Text(
-                    when (selectedMapType) {
-                        MapType.NORMAL -> "MAP"
-                        MapType.SATELLITE -> "SAT"
-                        MapType.HYBRID -> "HYB"
-                        else -> "MAP"
-                    },
-                    style = MaterialTheme.typography.labelSmall,
-                    fontWeight = FontWeight.ExtraBold
-                )
-            }
-
-            // Zoom In (+)
-            Button(
-                onClick = {
-                    scope.launch {
-                        cameraPositionState.animate(CameraUpdateFactory.zoomIn())
-                    }
-                },
-                shape = CircleShape,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                    contentColor = MaterialTheme.colorScheme.onSurface
-                ),
-                elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp),
-                modifier = Modifier.size(48.dp),
-                contentPadding = PaddingValues(0.dp)
-            ) {
-                Text("+", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-            }
-
-            // Zoom Out (-)
-            Button(
-                onClick = {
-                    scope.launch {
-                        cameraPositionState.animate(CameraUpdateFactory.zoomOut())
-                    }
-                },
-                shape = CircleShape,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                    contentColor = MaterialTheme.colorScheme.onSurface
-                ),
-                elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp),
-                modifier = Modifier.size(48.dp),
-                contentPadding = PaddingValues(0.dp)
-            ) {
-                Text("-", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-            }
-
-            // My Location / Target Recenter FAB (Google Maps Target Style)
+            // 1. My Location / Target Recenter FAB (Top of Controls Column)
             FloatingActionButton(
                 onClick = {
                     val currentGps = userCurrentLocation
@@ -2311,6 +2243,75 @@ fun TruckLvrMapScreen(
                     modifier = Modifier.size(26.dp)
                 )
             }
+
+            // 2. Zoom In (+)
+            Button(
+                onClick = {
+                    scope.launch {
+                        cameraPositionState.animate(CameraUpdateFactory.zoomIn())
+                    }
+                },
+                shape = CircleShape,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    contentColor = MaterialTheme.colorScheme.onSurface
+                ),
+                elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp),
+                modifier = Modifier.size(48.dp),
+                contentPadding = PaddingValues(0.dp)
+            ) {
+                Text("+", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            }
+
+            // 3. Zoom Out (-)
+            Button(
+                onClick = {
+                    scope.launch {
+                        cameraPositionState.animate(CameraUpdateFactory.zoomOut())
+                    }
+                },
+                shape = CircleShape,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    contentColor = MaterialTheme.colorScheme.onSurface
+                ),
+                elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp),
+                modifier = Modifier.size(48.dp),
+                contentPadding = PaddingValues(0.dp)
+            ) {
+                Text("-", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            }
+
+            // 4. Map Type View Toggle Button (MAP / SAT / HYB)
+            Button(
+                onClick = {
+                    selectedMapType = when (selectedMapType) {
+                        MapType.NORMAL -> MapType.SATELLITE
+                        MapType.SATELLITE -> MapType.HYBRID
+                        else -> MapType.NORMAL
+                    }
+                },
+                shape = CircleShape,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = if (selectedMapType != MapType.NORMAL) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
+                    contentColor = if (selectedMapType != MapType.NORMAL) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
+                ),
+                elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp),
+                modifier = Modifier.size(48.dp),
+                contentPadding = PaddingValues(0.dp)
+            ) {
+                Text(
+                    when (selectedMapType) {
+                        MapType.NORMAL -> "MAP"
+                        MapType.SATELLITE -> "SAT"
+                        MapType.HYBRID -> "HYB"
+                        else -> "MAP"
+                    },
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.ExtraBold
+                )
+            }
+        }
         }
     }
 
@@ -2372,7 +2373,6 @@ fun TruckLvrMapScreen(
             onDismiss = { showTruckStopFinder = false }
         )
     }
-}
 }
 }
 
