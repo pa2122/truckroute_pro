@@ -1,5 +1,6 @@
 package com.example.truckroutepro
 
+import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -115,21 +116,20 @@ fun PlacesSearchTextField(
                                     predictions = emptyList()
                                     isLoading = true
                                     scope.launch {
-                                        val details = TruckPlacesService.getPlaceDetails(apiKey, p.placeId)
+                                        val details = TruckPlacesService.getPlaceDetails(
+                                            apiKey = apiKey,
+                                            placeId = p.placeId,
+                                            fallbackAddress = p.fullDescription,
+                                            context = context
+                                        )
                                         isLoading = false
-                                        if (details != null) {
+                                        if (details != null && (details.location.latitude != 0.0 || details.location.longitude != 0.0)) {
                                             onValueChange(details.formattedAddress)
                                             SearchHistoryManager.addSearchItem(context, details.name, details.formattedAddress, details.location)
                                             recentSearches = SearchHistoryManager.getRecentSearches(context)
                                             onPlaceSelected(details)
                                         } else {
-                                            val fallbackDetails = PlaceDetailsResult(
-                                                placeId = p.placeId,
-                                                name = p.primaryText,
-                                                formattedAddress = p.fullDescription,
-                                                location = LatLng(0.0, 0.0)
-                                            )
-                                            onPlaceSelected(fallbackDetails)
+                                            Toast.makeText(context, "Could not find coordinates for '${p.primaryText}'", Toast.LENGTH_SHORT).show()
                                         }
                                     }
                                 }

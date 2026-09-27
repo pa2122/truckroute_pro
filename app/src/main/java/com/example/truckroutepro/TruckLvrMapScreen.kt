@@ -9,6 +9,7 @@ import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.RectF
 import android.graphics.Typeface
+import android.location.Location
 import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -39,7 +40,10 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
@@ -69,11 +73,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import kotlin.math.roundToInt
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -222,8 +228,10 @@ fun TruckLvrMapScreen(
                 permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true
     }
 
-    // Mabank, TX base location
+    // Mabank, TX base home location
     val mabankLatLng = LatLng(32.3553, -96.1089)
+    val mabankAddressText = "18907 County Road 4001, Mabank, TX 75147"
+
     val cameraPositionState = rememberCameraPositionState {
         position = CameraPosition.fromLatLngZoom(mabankLatLng, 15f)
     }
@@ -233,6 +241,15 @@ fun TruckLvrMapScreen(
 
     var destinationLatLng by remember { mutableStateOf<LatLng?>(null) }
     var destinationAddressText by remember { mutableStateOf("") }
+    var liveSpeedMph by remember { mutableFloatStateOf(0f) }
+
+    var currentOriginLatLng by remember { mutableStateOf<LatLng?>(mabankLatLng) }
+    var currentOriginText by remember { mutableStateOf(mabankAddressText) }
+
+    var routeResult by remember { mutableStateOf<TruckRouteResult?>(null) }
+    var isNavigating by remember { mutableStateOf(false) }
+    var activeStepIndex by remember { mutableIntStateOf(0) }
+    val voiceGuidance = remember { TruckVoiceGuidance(context) }
 
     LaunchedEffect(hasLocationPermission) {
         if (!hasLocationPermission) {
@@ -259,14 +276,45 @@ fun TruckLvrMapScreen(
 
                 val locationRequest = LocationRequest.Builder(
                     Priority.PRIORITY_HIGH_ACCURACY,
-                    4000L
-                ).setMinUpdateIntervalMillis(1500L).build()
+                    2000L
+                ).setMinUpdateIntervalMillis(1000L).build()
 
                 val locationCallback = object : LocationCallback() {
                     override fun onLocationResult(result: LocationResult) {
                         val lastLoc = result.lastLocation
                         if (lastLoc != null) {
-                            userCurrentLocation = LatLng(lastLoc.latitude, lastLoc.longitude)
+                            val driverLatLng = LatLng(lastLoc.latitude, lastLoc.longitude)
+                            userCurrentLocation = driverLatLng
+
+                            if (lastLoc.hasSpeed()) {
+                                liveSpeedMph = (lastLoc.speed * 2.23694f).coerceAtLeast(0f)
+                            } else {
+                                liveSpeedMph = 0f
+                            }
+
+                            // Auto-advance turn-by-turn navigation steps on real GPS location update
+                            if (isNavigating) {
+                                val activeRes = routeResult
+                                if (activeRes != null) {
+                                    val steps = activeRes.navSteps
+                                    if (steps.isNotEmpty() && activeStepIndex < steps.size) {
+                                        val currentStep = steps.getOrNull(activeStepIndex)
+                                        val nextStep = steps.getOrNull(activeStepIndex + 1)
+                                        val targetPos: LatLng? = nextStep?.startLatLng ?: currentStep?.startLatLng
+                                        if (targetPos != null) {
+                                            val distMeters = computeDistanceMeters(driverLatLng, targetPos)
+                                            if (distMeters <= 50.0f) {
+                                                activeStepIndex++
+                                                val newStep = steps.getOrNull(activeStepIndex)
+                                                if (newStep != null) {
+                                                    val promptText = "${newStep.distanceText}, ${newStep.instruction}"
+                                                    voiceGuidance.speakInstruction(promptText)
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -277,10 +325,7 @@ fun TruckLvrMapScreen(
             }
         }
     }
-    var currentOriginLatLng by remember { mutableStateOf<LatLng?>(null) }
-    var currentOriginText by remember { mutableStateOf("Current GPS Location") }
     var routePolyline by remember { mutableStateOf<List<LatLng>>(emptyList()) }
-    var routeResult by remember { mutableStateOf<TruckRouteResult?>(null) }
     var activeAlternativeRoutes by remember { mutableStateOf<List<TruckRouteResult>>(emptyList()) }
     var longPressedLatLng by remember { mutableStateOf<LatLng?>(null) }
     var routeTruckStops by remember { mutableStateOf<List<TruckStopOption>>(emptyList()) }
@@ -304,12 +349,9 @@ fun TruckLvrMapScreen(
     var specificStatusMessage by remember { mutableStateOf("") }
     var specificSearchResults by remember { mutableStateOf<List<TruckStopOption>>(emptyList()) }
     var searchJob by remember { mutableStateOf<Job?>(null) }
-    var isNavigating by remember { mutableStateOf(false) }
     var isSatelliteMode by remember { mutableStateOf(false) }
-    var activeStepIndex by remember { mutableIntStateOf(0) }
     var bottomHudHeightPx by remember { mutableIntStateOf(0) }
 
-    val voiceGuidance = remember { TruckVoiceGuidance(context) }
     var isVoiceMuted by remember { mutableStateOf(false) }
 
     DisposableEffect(Unit) {
@@ -760,6 +802,23 @@ fun TruckLvrMapScreen(
                             maxLines = 1
                         )
                     }
+
+                    if (activeNavRes.warningMessage.isNotBlank()) {
+                        HorizontalDivider(color = Color.White.copy(alpha = 0.35f))
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Text("⚠️", style = MaterialTheme.typography.labelMedium)
+                            Text(
+                                text = activeNavRes.warningMessage,
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFFFFD54F),
+                                maxLines = 1
+                            )
+                        }
+                    }
                 }
             }
         } else {
@@ -881,6 +940,27 @@ fun TruckLvrMapScreen(
                                 },
                                 placeholder = { Text("Search address, place or truck stop...") },
                                 singleLine = true,
+                                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                                keyboardActions = KeyboardActions(
+                                    onSearch = {
+                                        val query = inlineSearchInput.trim()
+                                        if (query.isNotBlank()) {
+                                            inlinePredictions = emptyList()
+                                            isInlineLoading = true
+                                            scope.launch {
+                                                val loc = TruckPlacesService.geocodeAddress("AIzaSyAcscUaSZ1EGCuTGb81kgLD4ul92DXpn5E", query, context)
+                                                isInlineLoading = false
+                                                isInlineSearching = false
+                                                if (loc != null && (loc.latitude != 0.0 || loc.longitude != 0.0)) {
+                                                    SearchHistoryManager.addSearchItem(context, query, query, loc)
+                                                    calculateRoute(loc, query)
+                                                } else {
+                                                    Toast.makeText(context, "Could not find location for '$query'", Toast.LENGTH_SHORT).show()
+                                                }
+                                            }
+                                        }
+                                    }
+                                ),
                                 trailingIcon = {
                                     if (isInlineLoading) {
                                         CircularProgressIndicator(
@@ -926,15 +1006,24 @@ fun TruckLvrMapScreen(
                                                 inlinePredictions = emptyList()
                                                 isInlineLoading = true
                                                 scope.launch {
-                                                    val details = TruckPlacesService.getPlaceDetails("AIzaSyAcscUaSZ1EGCuTGb81kgLD4ul92DXpn5E", p.placeId)
+                                                    val details = TruckPlacesService.getPlaceDetails(
+                                                        apiKey = "AIzaSyAcscUaSZ1EGCuTGb81kgLD4ul92DXpn5E",
+                                                        placeId = p.placeId,
+                                                        fallbackAddress = p.fullDescription,
+                                                        context = context
+                                                    )
                                                     isInlineLoading = false
                                                     isInlineSearching = false
 
-                                                    val destLoc = details?.location ?: LatLng(0.0, 0.0)
+                                                    val destLoc = details?.location
                                                     val destAddr = details?.formattedAddress ?: p.fullDescription
 
-                                                    SearchHistoryManager.addSearchItem(context, p.primaryText, destAddr, destLoc)
-                                                    calculateRoute(destLoc, destAddr)
+                                                    if (destLoc != null && (destLoc.latitude != 0.0 || destLoc.longitude != 0.0)) {
+                                                        SearchHistoryManager.addSearchItem(context, p.primaryText, destAddr, destLoc)
+                                                        calculateRoute(destLoc, destAddr)
+                                                    } else {
+                                                        Toast.makeText(context, "Could not find coordinates for '${p.primaryText}'", Toast.LENGTH_SHORT).show()
+                                                    }
                                                 }
                                             }
                                             .padding(14.dp),
@@ -1627,41 +1716,72 @@ fun TruckLvrMapScreen(
                 }
             }
         } else {
-                // Governed Speed Badge Overlay & Bottom Navigation HUD (Google Navigation Style)
+                // Governed Speed & Live Speedometer Overlay (Google Navigation Style)
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(bottom = 95.dp, start = 16.dp, end = 16.dp)
                 ) {
-                    // Bottom-Left Governed Speed Badge
-                    Surface(
-                    shape = CircleShape,
-                    color = Color.White,
-                    border = BorderStroke(3.dp, Color(0xFFD32F2F)),
-                    shadowElevation = 8.dp,
-                    modifier = Modifier
-                        .size(54.dp)
-                        .align(Alignment.BottomStart)
-                ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
+                    Row(
+                        modifier = Modifier.align(Alignment.BottomStart),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Text(
-                            "GOV",
-                            style = TextStyle(fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Color.Black)
-                        )
-                        Text(
-                            "${truckProfile.maxSpeedMph}",
-                            style = TextStyle(fontSize = 17.sp, fontWeight = FontWeight.ExtraBold, color = Color.Black)
-                        )
-                        Text(
-                            "MPH",
-                            style = TextStyle(fontSize = 8.sp, fontWeight = FontWeight.Bold, color = Color.DarkGray)
-                        )
+                        // Bottom-Left Governed Speed Badge
+                        Surface(
+                            shape = CircleShape,
+                            color = Color.White,
+                            border = BorderStroke(3.dp, Color(0xFFD32F2F)),
+                            shadowElevation = 8.dp,
+                            modifier = Modifier.size(54.dp)
+                        ) {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center
+                            ) {
+                                Text(
+                                    "GOV",
+                                    style = TextStyle(fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Color.Black)
+                                )
+                                Text(
+                                    "${truckProfile.maxSpeedMph}",
+                                    style = TextStyle(fontSize = 17.sp, fontWeight = FontWeight.ExtraBold, color = Color.Black)
+                                )
+                                Text(
+                                    "MPH",
+                                    style = TextStyle(fontSize = 8.sp, fontWeight = FontWeight.Bold, color = Color.DarkGray)
+                                )
+                            }
+                        }
+
+                        // Live GPS Speedometer Badge
+                        val isSpeeding = liveSpeedMph > truckProfile.maxSpeedMph
+                        Surface(
+                            shape = CircleShape,
+                            color = if (isSpeeding) Color(0xFFFFEBEE) else Color.White,
+                            border = BorderStroke(3.dp, if (isSpeeding) Color(0xFFD32F2F) else Color(0xFF1EA896)),
+                            shadowElevation = 8.dp,
+                            modifier = Modifier.size(54.dp)
+                        ) {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center
+                            ) {
+                                Text(
+                                    "SPEED",
+                                    style = TextStyle(fontSize = 8.sp, fontWeight = FontWeight.Bold, color = if (isSpeeding) Color(0xFFD32F2F) else Color(0xFF1EA896))
+                                )
+                                Text(
+                                    "${liveSpeedMph.roundToInt()}",
+                                    style = TextStyle(fontSize = 17.sp, fontWeight = FontWeight.ExtraBold, color = if (isSpeeding) Color(0xFFD32F2F) else Color.Black)
+                                )
+                                Text(
+                                    "MPH",
+                                    style = TextStyle(fontSize = 8.sp, fontWeight = FontWeight.Bold, color = Color.DarkGray)
+                                )
+                            }
+                        }
                     }
                 }
-            }
 
             // Bottom Navigation Trip Progress Card (Google Navigation Style)
             Surface(
@@ -2234,6 +2354,12 @@ fun calculateBearing(from: LatLng, to: LatLng): Float {
         brng += 360f
     }
     return brng
+}
+
+fun computeDistanceMeters(p1: LatLng, p2: LatLng): Float {
+    val results = FloatArray(1)
+    Location.distanceBetween(p1.latitude, p1.longitude, p2.latitude, p2.longitude, results)
+    return results[0]
 }
 
 fun calculateETA(durationMins: Int): String {

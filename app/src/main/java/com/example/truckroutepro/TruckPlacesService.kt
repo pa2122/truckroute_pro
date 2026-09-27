@@ -1,5 +1,7 @@
 package com.example.truckroutepro
 
+import android.content.Context
+import android.location.Geocoder
 import android.util.Log
 import com.google.android.gms.maps.model.LatLng
 import kotlinx.coroutines.Dispatchers
@@ -8,6 +10,7 @@ import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
+import java.util.Locale
 
 data class PlacePrediction(
     val placeId: String,
@@ -172,40 +175,124 @@ object TruckPlacesService {
         emptyList()
     }
 
-    suspend fun getPlaceDetails(
+    suspend fun geocodeAddress(
         apiKey: String,
-        placeId: String
-    ): PlaceDetailsResult? = withContext(Dispatchers.IO) {
-        if (placeId.isBlank() || apiKey.isBlank()) return@withContext null
+        addressText: String,
+        context: Context? = null
+    ): LatLng? = withContext(Dispatchers.IO) {
+        val clean = addressText.trim()
+        if (clean.isBlank()) return@withContext null
 
-        try {
-            val urlStr = "https://maps.googleapis.com/maps/api/place/details/json?place_id=$placeId&fields=name,formatted_address,geometry&key=$apiKey"
-            val conn = URL(urlStr).openConnection() as HttpURLConnection
-            conn.connectTimeout = 5000
-            conn.readTimeout = 5000
-
-            if (conn.responseCode == 200) {
-                val jsonText = conn.inputStream.bufferedReader().use { it.readText() }
-                val jsonObj = JSONObject(jsonText)
-                val status = jsonObj.optString("status")
-
-                if (status == "OK" && jsonObj.has("result")) {
-                    val res = jsonObj.getJSONObject("result")
-                    val name = res.optString("name", "")
-                    val address = res.optString("formatted_address", name)
-                    val locObj = res.getJSONObject("geometry").getJSONObject("location")
-                    val latLng = LatLng(locObj.getDouble("lat"), locObj.getDouble("lng"))
-
-                    return@withContext PlaceDetailsResult(
-                        placeId = placeId,
-                        name = name,
-                        formattedAddress = address,
-                        location = latLng
-                    )
+        if (clean.contains(",")) {
+            val parts = clean.split(",")
+            if (parts.size == 2) {
+                val lat = parts[0].trim().toDoubleOrNull()
+                val lng = parts[1].trim().toDoubleOrNull()
+                if (lat != null && lng != null && lat != 0.0 && lng != 0.0) {
+                    return@withContext LatLng(lat, lng)
                 }
             }
-        } catch (e: Exception) {
-            e.printStackTrace()
+        }
+
+        if (context != null) {
+            try {
+                val geocoder = Geocoder(context, Locale.US)
+                @Suppress("DEPRECATION")
+                val results = geocoder.getFromLocationName(clean, 1)
+                if (!results.isNullOrEmpty()) {
+                    val r = results[0]
+                    if (r.latitude != 0.0 || r.longitude != 0.0) {
+                        return@withContext LatLng(r.latitude, r.longitude)
+                    }
+                }
+            } catch (_: Exception) {}
+        }
+
+        if (apiKey.isNotBlank()) {
+            try {
+                val encodedAddr = URLEncoder.encode(clean, "UTF-8")
+                val urlStr = "https://maps.googleapis.com/maps/api/geocode/json?address=$encodedAddr&key=$apiKey"
+                val conn = URL(urlStr).openConnection() as HttpURLConnection
+                conn.connectTimeout = 5000
+                conn.readTimeout = 5000
+
+                if (conn.responseCode == 200) {
+                    val jsonText = conn.inputStream.bufferedReader().use { it.readText() }
+                    val jsonObj = JSONObject(jsonText)
+                    val status = jsonObj.optString("status")
+
+                    if (status == "OK") {
+                        val results = jsonObj.getJSONArray("results")
+                        if (results.length() > 0) {
+                            val location = results.getJSONObject(0).getJSONObject("geometry").getJSONObject("location")
+                            val lat = location.getDouble("lat")
+                            val lng = location.getDouble("lng")
+                            if (lat != 0.0 || lng != 0.0) {
+                                return@withContext LatLng(lat, lng)
+                            }
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e("TruckPlacesService", "Error in geocodeAddress REST API", e)
+            }
+        }
+
+        null
+    }
+
+    suspend fun getPlaceDetails(
+        apiKey: String,
+        placeId: String,
+        fallbackAddress: String = "",
+        context: Context? = null
+    ): PlaceDetailsResult? = withContext(Dispatchers.IO) {
+        if (placeId.isNotBlank() && apiKey.isNotBlank()) {
+            try {
+                val urlStr = "https://maps.googleapis.com/maps/api/place/details/json?place_id=$placeId&fields=name,formatted_address,geometry&key=$apiKey"
+                val conn = URL(urlStr).openConnection() as HttpURLConnection
+                conn.connectTimeout = 5000
+                conn.readTimeout = 5000
+
+                if (conn.responseCode == 200) {
+                    val jsonText = conn.inputStream.bufferedReader().use { it.readText() }
+                    val jsonObj = JSONObject(jsonText)
+                    val status = jsonObj.optString("status")
+
+                    if (status == "OK" && jsonObj.has("result")) {
+                        val res = jsonObj.getJSONObject("result")
+                        val name = res.optString("name", "")
+                        val address = res.optString("formatted_address", name)
+                        val locObj = res.getJSONObject("geometry").getJSONObject("location")
+                        val lat = locObj.getDouble("lat")
+                        val lng = locObj.getDouble("lng")
+
+                        if (lat != 0.0 || lng != 0.0) {
+                            return@withContext PlaceDetailsResult(
+                                placeId = placeId,
+                                name = name,
+                                formattedAddress = address,
+                                location = LatLng(lat, lng)
+                            )
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e("TruckPlacesService", "Error in getPlaceDetails", e)
+            }
+        }
+
+        // If placeId failed or returned invalid coordinates, fallback to geocoding fallbackAddress
+        if (fallbackAddress.isNotBlank()) {
+            val geocodedLoc = geocodeAddress(apiKey, fallbackAddress, context)
+            if (geocodedLoc != null && (geocodedLoc.latitude != 0.0 || geocodedLoc.longitude != 0.0)) {
+                return@withContext PlaceDetailsResult(
+                    placeId = placeId.ifBlank { "geocoded" },
+                    name = fallbackAddress,
+                    formattedAddress = fallbackAddress,
+                    location = geocodedLoc
+                )
+            }
         }
 
         null
