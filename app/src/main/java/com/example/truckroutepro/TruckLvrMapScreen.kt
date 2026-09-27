@@ -2187,7 +2187,9 @@ fun TruckLvrMapScreen(
             }
         }
 
-        // Floating Custom Controls Column (Bottom-Right)
+        }
+
+        // Floating Custom Controls Column (Bottom-Right, Always Visible at Root Level)
         val controlsBottomPadding = if (routeResult != null && bottomHudHeightDp > 0.dp) bottomHudHeightDp + 12.dp else 16.dp
         Column(
             horizontalAlignment = Alignment.End,
@@ -2315,7 +2317,7 @@ fun TruckLvrMapScreen(
                 )
             }
         }
-        }
+    }
     }
 
     if (showAddressDialog) {
@@ -2376,7 +2378,6 @@ fun TruckLvrMapScreen(
             onDismiss = { showTruckStopFinder = false }
         )
     }
-}
 }
 
 fun calculateBearing(from: LatLng, to: LatLng): Float {
