@@ -656,6 +656,129 @@ fun TruckLvrMapScreen(
             }
         }
 
+        // Floating Custom Controls Column (Bottom-Right, Always Visible Inside Root Box)
+        val controlsBottomPadding = if (routeResult != null && bottomHudHeightDp > 0.dp) bottomHudHeightDp + 16.dp else 24.dp
+        Card(
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f)),
+            shape = RoundedCornerShape(28.dp),
+            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(bottom = controlsBottomPadding, end = 16.dp)
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.padding(6.dp)
+            ) {
+                // 1. My Location / Target Recenter FAB (Top of Controls Column)
+                FloatingActionButton(
+                    onClick = {
+                        val currentGps = userCurrentLocation
+                        if (currentGps != null) {
+                            scope.launch {
+                                if (isNavigating) {
+                                    cameraPositionState.animate(
+                                        CameraUpdateFactory.newCameraPosition(
+                                            CameraPosition.Builder()
+                                                .target(currentGps)
+                                                .zoom(17.5f)
+                                                .tilt(55f)
+                                                .build()
+                                        )
+                                    )
+                                } else {
+                                    cameraPositionState.animate(CameraUpdateFactory.newLatLngZoom(currentGps, 16f))
+                                }
+                            }
+                        } else if (hasLocationPermission) {
+                            try {
+                                fusedLocationClient.lastLocation.addOnSuccessListener { loc ->
+                                    if (loc != null) {
+                                        val currentLatLng = LatLng(loc.latitude, loc.longitude)
+                                        userCurrentLocation = currentLatLng
+                                        scope.launch {
+                                            cameraPositionState.animate(CameraUpdateFactory.newLatLngZoom(currentLatLng, 16f))
+                                        }
+                                    }
+                                }
+                            } catch (e: SecurityException) {
+                                e.printStackTrace()
+                            }
+                        } else {
+                            Toast.makeText(context, "Location permission required", Toast.LENGTH_SHORT).show()
+                        }
+                    },
+                    shape = CircleShape,
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    modifier = Modifier.size(48.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.LocationOn,
+                        contentDescription = "My Location / Recenter",
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+
+                // 2. Zoom In (+)
+                FloatingActionButton(
+                    onClick = {
+                        scope.launch {
+                            cameraPositionState.animate(CameraUpdateFactory.zoomIn())
+                        }
+                    },
+                    shape = CircleShape,
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(44.dp)
+                ) {
+                    Text("+", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                }
+
+                // 3. Zoom Out (-)
+                FloatingActionButton(
+                    onClick = {
+                        scope.launch {
+                            cameraPositionState.animate(CameraUpdateFactory.zoomOut())
+                        }
+                    },
+                    shape = CircleShape,
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(44.dp)
+                ) {
+                    Text("-", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                }
+
+                // 4. Map Type View Toggle Button (MAP / SAT / HYB)
+                FloatingActionButton(
+                    onClick = {
+                        selectedMapType = when (selectedMapType) {
+                            MapType.NORMAL -> MapType.SATELLITE
+                            MapType.SATELLITE -> MapType.HYBRID
+                            else -> MapType.NORMAL
+                        }
+                    },
+                    shape = CircleShape,
+                    containerColor = if (selectedMapType != MapType.NORMAL) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+                    contentColor = if (selectedMapType != MapType.NORMAL) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(44.dp)
+                ) {
+                    Text(
+                        when (selectedMapType) {
+                            MapType.NORMAL -> "MAP"
+                            MapType.SATELLITE -> "SAT"
+                            MapType.HYBRID -> "HYB"
+                            else -> "MAP"
+                        },
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                }
+            }
+        }
+
         // Top Navigation Header: Green Floating Turn-by-Turn Banner (Google Navigation Style)
         val activeNavRes = routeResult
         if (isNavigating && activeNavRes != null && activeNavRes.navSteps.isNotEmpty()) {
@@ -2185,135 +2308,6 @@ fun TruckLvrMapScreen(
                         }
                     }
                 }
-            }
-        }
-
-        // Floating Custom Controls Column (Bottom-Right, Always Visible Inside Root Box)
-        val controlsBottomPadding = if (routeResult != null && bottomHudHeightDp > 0.dp) bottomHudHeightDp + 12.dp else 16.dp
-        Column(
-            horizontalAlignment = Alignment.End,
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .navigationBarsPadding()
-                .padding(bottom = controlsBottomPadding, end = 16.dp)
-        ) {
-            // 1. My Location / Target Recenter FAB (Top of Controls Column)
-            FloatingActionButton(
-                onClick = {
-                    val currentGps = userCurrentLocation
-                    if (currentGps != null) {
-                        scope.launch {
-                            if (isNavigating) {
-                                cameraPositionState.animate(
-                                    CameraUpdateFactory.newCameraPosition(
-                                        CameraPosition.Builder()
-                                            .target(currentGps)
-                                            .zoom(17.5f)
-                                            .tilt(55f)
-                                            .build()
-                                    )
-                                )
-                            } else {
-                                cameraPositionState.animate(CameraUpdateFactory.newLatLngZoom(currentGps, 16f))
-                            }
-                        }
-                    } else if (hasLocationPermission) {
-                        try {
-                            fusedLocationClient.lastLocation.addOnSuccessListener { loc ->
-                                if (loc != null) {
-                                    val currentLatLng = LatLng(loc.latitude, loc.longitude)
-                                    userCurrentLocation = currentLatLng
-                                    scope.launch {
-                                        cameraPositionState.animate(CameraUpdateFactory.newLatLngZoom(currentLatLng, 16f))
-                                    }
-                                }
-                            }
-                        } catch (e: SecurityException) {
-                            e.printStackTrace()
-                        }
-                    } else {
-                        Toast.makeText(context, "Location permission required", Toast.LENGTH_SHORT).show()
-                    }
-                },
-                shape = CircleShape,
-                containerColor = MaterialTheme.colorScheme.surface,
-                contentColor = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(52.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.LocationOn,
-                    contentDescription = "My Location / Recenter",
-                    modifier = Modifier.size(26.dp)
-                )
-            }
-
-            // 2. Zoom In (+)
-            Button(
-                onClick = {
-                    scope.launch {
-                        cameraPositionState.animate(CameraUpdateFactory.zoomIn())
-                    }
-                },
-                shape = CircleShape,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                    contentColor = MaterialTheme.colorScheme.onSurface
-                ),
-                elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp),
-                modifier = Modifier.size(48.dp),
-                contentPadding = PaddingValues(0.dp)
-            ) {
-                Text("+", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-            }
-
-            // 3. Zoom Out (-)
-            Button(
-                onClick = {
-                    scope.launch {
-                        cameraPositionState.animate(CameraUpdateFactory.zoomOut())
-                    }
-                },
-                shape = CircleShape,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                    contentColor = MaterialTheme.colorScheme.onSurface
-                ),
-                elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp),
-                modifier = Modifier.size(48.dp),
-                contentPadding = PaddingValues(0.dp)
-            ) {
-                Text("-", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-            }
-
-            // 4. Map Type View Toggle Button (MAP / SAT / HYB)
-            Button(
-                onClick = {
-                    selectedMapType = when (selectedMapType) {
-                        MapType.NORMAL -> MapType.SATELLITE
-                        MapType.SATELLITE -> MapType.HYBRID
-                        else -> MapType.NORMAL
-                    }
-                },
-                shape = CircleShape,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = if (selectedMapType != MapType.NORMAL) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
-                    contentColor = if (selectedMapType != MapType.NORMAL) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
-                ),
-                elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp),
-                modifier = Modifier.size(48.dp),
-                contentPadding = PaddingValues(0.dp)
-            ) {
-                Text(
-                    when (selectedMapType) {
-                        MapType.NORMAL -> "MAP"
-                        MapType.SATELLITE -> "SAT"
-                        MapType.HYBRID -> "HYB"
-                        else -> "MAP"
-                    },
-                    style = MaterialTheme.typography.labelSmall,
-                    fontWeight = FontWeight.ExtraBold
-                )
             }
         }
     }
