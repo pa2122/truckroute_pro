@@ -353,11 +353,59 @@ fun TruckLvrMapScreen(
     var selectedMapType by remember { mutableStateOf(MapType.NORMAL) }
     var bottomHudHeightPx by remember { mutableIntStateOf(0) }
 
+    var nearbyCmvStops by remember { mutableStateOf<List<TruckStopOption>>(emptyList()) }
+    var selectedCmvCategory by remember { mutableStateOf("ALL") }
+    var isFetchingNearbyCmv by remember { mutableStateOf(false) }
+    var lastNearbyFetchLocation by remember { mutableStateOf<LatLng?>(null) }
+
     var isVoiceMuted by remember { mutableStateOf(false) }
 
     DisposableEffect(Unit) {
         onDispose {
             voiceGuidance.shutdown()
+        }
+    }
+
+    fun fetchNearbyCmvLocations(center: LatLng, force: Boolean = false) {
+        val lastLoc = lastNearbyFetchLocation
+        if (!force && lastLoc != null && computeDistanceMeters(center, lastLoc) < 4828f) {
+            return
+        }
+        lastNearbyFetchLocation = center
+        isFetchingNearbyCmv = true
+        scope.launch {
+            val apiKey = "AIzaSyAcscUaSZ1EGCuTGb81kgLD4ul92DXpn5E"
+            val queryText = when (selectedCmvCategory) {
+                "TRUCK_STOPS" -> "truck stop OR travel plaza OR diesel station"
+                "REST_AREAS" -> "rest area OR rest stop OR highway welcome center"
+                "SCALES" -> "weigh station OR scale house OR port of entry"
+                "REPAIRS" -> "truck repair OR commercial tire service OR semi trailer service"
+                else -> "truck stop OR travel plaza OR rest area OR weigh station OR truck repair"
+            }
+            val stops = withContext(Dispatchers.IO) {
+                queryTruckStopsNearLocation(
+                    apiKey = apiKey,
+                    location = center,
+                    routePolyline = listOf(center),
+                    radiusMeters = 32186.8,
+                    searchQuery = queryText
+                )
+            }
+            val updatedStops = stops.map { s ->
+                val distMeters = computeDistanceMeters(center, s.location)
+                val distMiles = distMeters / 1609.344
+                s.copy(mileMarker = distMiles)
+            }.sortedBy { it.mileMarker }
+
+            nearbyCmvStops = updatedStops
+            isFetchingNearbyCmv = false
+        }
+    }
+
+    LaunchedEffect(userCurrentLocation, cameraPositionState.position.target, routeResult, selectedCmvCategory) {
+        val center = userCurrentLocation ?: cameraPositionState.position.target
+        if (routeResult == null) {
+            fetchNearbyCmvLocations(center)
         }
     }
 
@@ -599,13 +647,24 @@ fun TruckLvrMapScreen(
                 )
             }
 
-            // Truck Stops & Travel Centers Pins along the Route
-            val activeTruckStops = if (specificSearchResults.isNotEmpty()) specificSearchResults else routeTruckStops
+            // Truck Stops & Travel Centers Pins (Along Route or 20-mile Nearby when No Route)
+            val activeTruckStops = if (routeResult != null) {
+                if (specificSearchResults.isNotEmpty()) specificSearchResults else routeTruckStops
+            } else {
+                nearbyCmvStops
+            }
+
             activeTruckStops.forEach { stop ->
+                val snippetText = if (routeResult != null) {
+                    "Mile ${String.format(Locale.US, "%.1f", stop.mileMarker)} • ${stop.address}"
+                } else {
+                    "${String.format(Locale.US, "%.1f", stop.mileMarker)} mi away • ${stop.address}"
+                }
+
                 Marker(
                     state = remember(stop.location) { MarkerState(position = stop.location) },
                     title = stop.name,
-                    snippet = "Mile ${String.format(Locale.US, "%.1f", stop.mileMarker)} • ${stop.address}",
+                    snippet = snippetText,
                     icon = remember(stop.name) { getBrandMarkerIcon(context, stop.name) },
                     onClick = {
                         selectedStopOption = stop
@@ -765,6 +824,7 @@ fun TruckLvrMapScreen(
 
         // Floating Truck Profile Info Overlay Card (Top-Left)
         if (!isInlineSearching) {
+            val cardTopPadding = if (routeResult == null) 124.dp else 74.dp
             Card(
                 onClick = onOpenDrawer,
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f)),
@@ -772,7 +832,7 @@ fun TruckLvrMapScreen(
                 elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
                 modifier = Modifier
                     .align(Alignment.TopStart)
-                    .padding(top = 74.dp, start = 12.dp)
+                    .padding(top = cardTopPadding, start = 12.dp)
             ) {
                 Column(
                     modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
@@ -1303,6 +1363,63 @@ fun TruckLvrMapScreen(
                                     }
                                     HorizontalDivider()
                                 }
+                            }
+                        }
+                    }
+                }
+                // 20-Mile CMV Category Filter Row (When No Route Active)
+                if (routeResult == null && !isInlineSearching) {
+                    Surface(
+                        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
+                        shape = RoundedCornerShape(16.dp),
+                        shadowElevation = 6.dp,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                                .horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                "20mi Nearby (${nearbyCmvStops.size}):",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(start = 4.dp, end = 2.dp)
+                            )
+
+                            val categories = listOf(
+                                "ALL" to "All",
+                                "TRUCK_STOPS" to "Truck Stops",
+                                "REST_AREAS" to "Rest Areas",
+                                "SCALES" to "Scales",
+                                "REPAIRS" to "Repairs"
+                            )
+
+                            categories.forEach { (catKey, catLabel) ->
+                                val isSelected = selectedCmvCategory == catKey
+                                FilterChip(
+                                    selected = isSelected,
+                                    onClick = {
+                                        selectedCmvCategory = catKey
+                                        userCurrentLocation?.let { fetchNearbyCmvLocations(it, force = true) }
+                                    },
+                                    label = {
+                                        Text(
+                                            catLabel,
+                                            style = MaterialTheme.typography.labelSmall,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    },
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                        selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
+                                    ),
+                                    modifier = Modifier.height(28.dp)
+                                )
                             }
                         }
                     }
