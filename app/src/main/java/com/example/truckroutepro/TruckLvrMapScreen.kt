@@ -41,10 +41,12 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -111,6 +113,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
@@ -284,6 +287,12 @@ fun TruckLvrMapScreen(
     var selectedStopLocation by remember { mutableStateOf<LatLng?>(null) }
     var selectedStopOption by remember { mutableStateOf<TruckStopOption?>(null) }
     var showAddressDialog by remember { mutableStateOf(false) }
+    var isInlineSearching by remember { mutableStateOf(false) }
+    var inlineSearchInput by remember { mutableStateOf("") }
+    var inlinePredictions by remember { mutableStateOf<List<PlacePrediction>>(emptyList()) }
+    var isInlineLoading by remember { mutableStateOf(false) }
+    var inlineSearchJob by remember { mutableStateOf<Job?>(null) }
+    var recentInlineSearches by remember { mutableStateOf(SearchHistoryManager.getRecentSearches(context)) }
     var isEditingOriginFromMap by remember { mutableStateOf(false) }
     var showTruckStopFinder by remember { mutableStateOf(false) }
     var isBottomHudExpanded by remember { mutableStateOf(false) }
@@ -754,62 +763,281 @@ fun TruckLvrMapScreen(
                 }
             }
         } else {
-            // Sleek Compact Top Bar (Clean Design with Address Bar & Hamburger Icon)
-            Surface(
-                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
-                shape = RoundedCornerShape(16.dp),
-                shadowElevation = 6.dp,
+            // Sleek Floating Top Search Bar (Inline Live Google Places Search & Suggestions)
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(12.dp)
-                    .align(Alignment.TopCenter)
+                    .align(Alignment.TopCenter),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                Row(
-                    modifier = Modifier.padding(8.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                Surface(
+                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
+                    shape = RoundedCornerShape(20.dp),
+                    shadowElevation = 8.dp,
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    Button(
-                        onClick = onOpenDrawer,
-                        shape = CircleShape,
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                            contentColor = MaterialTheme.colorScheme.onSurfaceVariant
-                        ),
-                        contentPadding = PaddingValues(0.dp),
-                        modifier = Modifier.size(44.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Menu,
-                            contentDescription = "Open Sidebar",
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
-
-                    Surface(
-                        onClick = {
-                            isEditingOriginFromMap = false
-                            showAddressDialog = true
-                        },
-                        shape = RoundedCornerShape(22.dp),
-                        color = MaterialTheme.colorScheme.primaryContainer,
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(40.dp)
-                            .padding(horizontal = 4.dp)
-                    ) {
-                        Box(
-                            contentAlignment = Alignment.Center,
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(horizontal = 12.dp)
+                    if (!isInlineSearching) {
+                        Row(
+                            modifier = Modifier.padding(6.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(
-                                if (destinationAddressText.isNotBlank()) destinationAddressText else "Search Destination",
-                                maxLines = 1,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                            Button(
+                                onClick = onOpenDrawer,
+                                shape = CircleShape,
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                    contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                                ),
+                                contentPadding = PaddingValues(0.dp),
+                                modifier = Modifier.size(44.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Menu,
+                                    contentDescription = "Open Sidebar",
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
+
+                            Surface(
+                                onClick = {
+                                    inlineSearchInput = destinationAddressText
+                                    isInlineSearching = true
+                                    recentInlineSearches = SearchHistoryManager.getRecentSearches(context)
+                                },
+                                shape = RoundedCornerShape(20.dp),
+                                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.85f),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(44.dp)
+                                    .padding(horizontal = 6.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .padding(horizontal = 14.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Search,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Text(
+                                        text = if (destinationAddressText.isNotBlank()) destinationAddressText else "Search Destination...",
+                                        maxLines = 1,
+                                        fontWeight = FontWeight.Bold,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                                    )
+                                }
+                            }
+                        }
+                    } else {
+                        // Active Inline Text Input Mode directly in top search bar
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 8.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            IconButton(
+                                onClick = {
+                                    isInlineSearching = false
+                                    inlinePredictions = emptyList()
+                                },
+                                modifier = Modifier.size(40.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                    contentDescription = "Exit Search",
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            }
+
+                            OutlinedTextField(
+                                value = inlineSearchInput,
+                                onValueChange = { input ->
+                                    inlineSearchInput = input
+                                    inlineSearchJob?.cancel()
+
+                                    val clean = input.trim()
+                                    if (clean.length >= 2) {
+                                        isInlineLoading = true
+                                        inlineSearchJob = scope.launch {
+                                            delay(200L)
+                                            val results = TruckPlacesService.getPlacePredictions("AIzaSyAcscUaSZ1EGCuTGb81kgLD4ul92DXpn5E", clean)
+                                            inlinePredictions = results
+                                            isInlineLoading = false
+                                        }
+                                    } else {
+                                        inlinePredictions = emptyList()
+                                        isInlineLoading = false
+                                    }
+                                },
+                                placeholder = { Text("Search address, place or truck stop...") },
+                                singleLine = true,
+                                trailingIcon = {
+                                    if (isInlineLoading) {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(20.dp),
+                                            strokeWidth = 2.dp,
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
+                                    } else if (inlineSearchInput.isNotBlank()) {
+                                        IconButton(
+                                            onClick = {
+                                                inlineSearchInput = ""
+                                                inlinePredictions = emptyList()
+                                            }
+                                        ) {
+                                            Icon(Icons.Default.Close, contentDescription = "Clear Input")
+                                        }
+                                    }
+                                },
+                                modifier = Modifier.weight(1f)
                             )
+                        }
+                    }
+                }
+
+                // Live Autocomplete Suggestions Card Floating Underneath Search Bar
+                if (isInlineSearching) {
+                    if (inlinePredictions.isNotEmpty()) {
+                        Surface(
+                            shape = RoundedCornerShape(16.dp),
+                            color = MaterialTheme.colorScheme.surface,
+                            shadowElevation = 10.dp,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(max = 380.dp)
+                        ) {
+                            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                                inlinePredictions.forEach { p ->
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable {
+                                                inlineSearchInput = p.fullDescription
+                                                inlinePredictions = emptyList()
+                                                isInlineLoading = true
+                                                scope.launch {
+                                                    val details = TruckPlacesService.getPlaceDetails("AIzaSyAcscUaSZ1EGCuTGb81kgLD4ul92DXpn5E", p.placeId)
+                                                    isInlineLoading = false
+                                                    isInlineSearching = false
+
+                                                    val destLoc = details?.location ?: LatLng(0.0, 0.0)
+                                                    val destAddr = details?.formattedAddress ?: p.fullDescription
+
+                                                    SearchHistoryManager.addSearchItem(context, p.primaryText, destAddr, destLoc)
+                                                    calculateRoute(destLoc, destAddr)
+                                                }
+                                            }
+                                            .padding(14.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.LocationOn,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(22.dp)
+                                        )
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                p.primaryText,
+                                                fontWeight = FontWeight.Bold,
+                                                style = MaterialTheme.typography.bodyMedium
+                                            )
+                                            if (p.secondaryText.isNotBlank()) {
+                                                Text(
+                                                    p.secondaryText,
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = MaterialTheme.colorScheme.secondary
+                                                )
+                                            }
+                                        }
+                                    }
+                                    HorizontalDivider()
+                                }
+                            }
+                        }
+                    } else if (inlineSearchInput.isBlank() && recentInlineSearches.isNotEmpty()) {
+                        // Display Recent Searches History
+                        Surface(
+                            shape = RoundedCornerShape(16.dp),
+                            color = MaterialTheme.colorScheme.surface,
+                            shadowElevation = 10.dp,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(8.dp)) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        "Recent Searches",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                    TextButton(
+                                        onClick = {
+                                            SearchHistoryManager.clearSearchHistory(context)
+                                            recentInlineSearches = emptyList()
+                                        }
+                                    ) {
+                                        Text("Clear History", style = MaterialTheme.typography.labelSmall)
+                                    }
+                                }
+                                HorizontalDivider()
+
+                                recentInlineSearches.take(5).forEach { item ->
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable {
+                                                isInlineSearching = false
+                                                val destLoc = LatLng(item.latitude, item.longitude)
+                                                val destAddr = item.formattedAddress
+                                                SearchHistoryManager.addSearchItem(context, item.title, destAddr, destLoc)
+                                                calculateRoute(destLoc, destAddr)
+                                            }
+                                            .padding(12.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.LocationOn,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.secondary,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                item.title,
+                                                fontWeight = FontWeight.Bold,
+                                                style = MaterialTheme.typography.bodyMedium
+                                            )
+                                            if (item.formattedAddress.isNotBlank()) {
+                                                Text(
+                                                    item.formattedAddress,
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = MaterialTheme.colorScheme.secondary
+                                                )
+                                            }
+                                        }
+                                    }
+                                    HorizontalDivider()
+                                }
+                            }
                         }
                     }
                 }
