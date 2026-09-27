@@ -34,6 +34,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -2187,12 +2188,14 @@ fun TruckLvrMapScreen(
         }
 
         // Floating Custom Controls Column (Bottom-Right)
+        val controlsBottomPadding = if (routeResult != null && bottomHudHeightDp > 0.dp) bottomHudHeightDp + 12.dp else 16.dp
         Column(
             horizontalAlignment = Alignment.End,
             verticalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier
                 .align(Alignment.BottomEnd)
-                .padding(bottom = maxOf(bottomHudHeightDp + 16.dp, 100.dp), end = 16.dp)
+                .navigationBarsPadding()
+                .padding(bottom = controlsBottomPadding, end = 16.dp)
         ) {
             // 1. My Location / Target Recenter FAB (Top of Controls Column)
             FloatingActionButton(
