@@ -1898,6 +1898,7 @@ fun TruckLvrMapScreen(
                     }
                 }
             }
+        }
 
         // Floating Selected Location Detail Card with Rich Amenities & Actions
         val activeSelectedStop = selectedStopOption
@@ -2185,6 +2186,7 @@ fun TruckLvrMapScreen(
                     }
                 }
             }
+        }
 
         // Floating Custom Controls Column (Bottom-Right, Always Visible Inside Root Box)
         val controlsBottomPadding = if (routeResult != null && bottomHudHeightDp > 0.dp) bottomHudHeightDp + 12.dp else 16.dp
@@ -2315,7 +2317,6 @@ fun TruckLvrMapScreen(
             }
         }
     }
-    }
 
     if (showAddressDialog) {
         ManualAddressDialog(
@@ -2375,7 +2376,6 @@ fun TruckLvrMapScreen(
             onDismiss = { showTruckStopFinder = false }
         )
     }
-}
 }
 }
 
