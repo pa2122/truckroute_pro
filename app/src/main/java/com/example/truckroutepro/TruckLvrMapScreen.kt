@@ -1094,10 +1094,23 @@ fun TruckLvrMapScreen(
                                             .fillMaxWidth()
                                             .clickable {
                                                 isInlineSearching = false
-                                                val destLoc = LatLng(item.latitude, item.longitude)
+                                                val initialLoc = LatLng(item.latitude, item.longitude)
                                                 val destAddr = item.formattedAddress
-                                                SearchHistoryManager.addSearchItem(context, item.title, destAddr, destLoc)
-                                                calculateRoute(destLoc, destAddr)
+
+                                                scope.launch {
+                                                    val resolvedLoc = if (initialLoc.latitude == 0.0 && initialLoc.longitude == 0.0) {
+                                                        TruckPlacesService.geocodeAddress("AIzaSyAcscUaSZ1EGCuTGb81kgLD4ul92DXpn5E", destAddr, context)
+                                                    } else {
+                                                        initialLoc
+                                                    }
+
+                                                    if (resolvedLoc != null && (resolvedLoc.latitude != 0.0 || resolvedLoc.longitude != 0.0)) {
+                                                        SearchHistoryManager.addSearchItem(context, item.title, destAddr, resolvedLoc)
+                                                        calculateRoute(resolvedLoc, destAddr)
+                                                    } else {
+                                                        Toast.makeText(context, "Could not locate '${item.title}'. Please search again.", Toast.LENGTH_SHORT).show()
+                                                    }
+                                                }
                                             }
                                             .padding(12.dp),
                                         verticalAlignment = Alignment.CenterVertically,

@@ -27,15 +27,19 @@ object SearchHistoryManager {
             val array = JSONArray(jsonStr)
             for (i in 0 until array.length()) {
                 val obj = array.getJSONObject(i)
-                list.add(
-                    SearchHistoryItem(
-                        title = obj.optString("title", "Saved Location"),
-                        formattedAddress = obj.optString("formattedAddress", ""),
-                        latitude = obj.optDouble("latitude", 0.0),
-                        longitude = obj.optDouble("longitude", 0.0),
-                        timestamp = obj.optLong("timestamp", 0L)
+                val lat = obj.optDouble("latitude", 0.0)
+                val lng = obj.optDouble("longitude", 0.0)
+                if (lat != 0.0 || lng != 0.0) {
+                    list.add(
+                        SearchHistoryItem(
+                            title = obj.optString("title", "Saved Location"),
+                            formattedAddress = obj.optString("formattedAddress", ""),
+                            latitude = lat,
+                            longitude = lng,
+                            timestamp = obj.optLong("timestamp", 0L)
+                        )
                     )
-                )
+                }
             }
             list.sortedByDescending { it.timestamp }
         } catch (_: Exception) {
@@ -44,7 +48,7 @@ object SearchHistoryManager {
     }
 
     fun addSearchItem(context: Context, title: String, address: String, latLng: LatLng) {
-        if (address.isBlank()) return
+        if (address.isBlank() || (latLng.latitude == 0.0 && latLng.longitude == 0.0)) return
         val currentList = getRecentSearches(context).toMutableList()
 
         // Remove duplicate entry if address or title matches
