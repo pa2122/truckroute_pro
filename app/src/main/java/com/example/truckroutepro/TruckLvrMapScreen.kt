@@ -779,13 +779,13 @@ fun TruckLvrMapScreen(
                     verticalArrangement = Arrangement.spacedBy(2.dp)
                 ) {
                     Text(
-                        text = "🚛 ${truckProfile.profileName}",
+                        text = truckProfile.profileName,
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.ExtraBold,
                         color = MaterialTheme.colorScheme.primary
                     )
                     Text(
-                        text = "📏 ${truckProfile.formattedHeight}",
+                        text = truckProfile.formattedHeight,
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
@@ -796,20 +796,20 @@ fun TruckLvrMapScreen(
                         "${truckProfile.weightLbs.toInt()} lbs"
                     }
                     Text(
-                        text = "⚖️ $weightFormatted",
+                        text = weightFormatted,
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = "⚡ ${truckProfile.maxSpeedMph} MPH Gov",
+                        text = "${truckProfile.maxSpeedMph} MPH Gov",
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     if (truckProfile.isHazmat) {
                         Text(
-                            text = "⚠️ Hazmat Class 1-9",
+                            text = "Hazmat Class 1-9",
                             style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.Bold,
                             color = Color(0xFFD32F2F)
