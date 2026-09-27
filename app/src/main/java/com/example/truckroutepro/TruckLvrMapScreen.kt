@@ -763,6 +763,62 @@ fun TruckLvrMapScreen(
             }
         }
 
+        // Floating Truck Profile Info Overlay Card (Top-Left)
+        if (!isInlineSearching) {
+            Card(
+                onClick = onOpenDrawer,
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f)),
+                shape = RoundedCornerShape(14.dp),
+                elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(top = 74.dp, start = 12.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
+                    Text(
+                        text = "🚛 ${truckProfile.profileName}",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Text(
+                        text = "📏 ${truckProfile.formattedHeight}",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    val weightFormatted = if (truckProfile.weightLbs >= 1000) {
+                        "${String.format(Locale.US, "%.1f", truckProfile.weightLbs / 1000.0).replace(".0", "")}k lbs"
+                    } else {
+                        "${truckProfile.weightLbs.toInt()} lbs"
+                    }
+                    Text(
+                        text = "⚖️ $weightFormatted",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = "⚡ ${truckProfile.maxSpeedMph} MPH Gov",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    if (truckProfile.isHazmat) {
+                        Text(
+                            text = "⚠️ Hazmat Class 1-9",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFFD32F2F)
+                        )
+                    }
+                }
+            }
+        }
+
         // Top Navigation Header: Green Floating Turn-by-Turn Banner (Google Navigation Style)
         val activeNavRes = routeResult
         if (isNavigating && activeNavRes != null && activeNavRes.navSteps.isNotEmpty()) {
