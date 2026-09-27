@@ -660,7 +660,7 @@ fun TruckLvrMapScreen(
         val controlsBottomPadding = if (routeResult != null && bottomHudHeightDp > 0.dp) bottomHudHeightDp + 16.dp else 24.dp
         Card(
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f)),
-            shape = RoundedCornerShape(28.dp),
+            shape = RoundedCornerShape(16.dp),
             elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
             modifier = Modifier
                 .align(Alignment.BottomEnd)
@@ -709,7 +709,7 @@ fun TruckLvrMapScreen(
                             Toast.makeText(context, "Location permission required", Toast.LENGTH_SHORT).show()
                         }
                     },
-                    shape = CircleShape,
+                    shape = RoundedCornerShape(12.dp),
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
                     contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
                     modifier = Modifier.size(48.dp)
@@ -721,14 +721,31 @@ fun TruckLvrMapScreen(
                     )
                 }
 
-                // 2. Zoom In (+)
+                // 2. Map Type View Toggle Button (Toggle MAP / HYBRID)
+                FloatingActionButton(
+                    onClick = {
+                        selectedMapType = if (selectedMapType == MapType.NORMAL) MapType.HYBRID else MapType.NORMAL
+                    },
+                    shape = RoundedCornerShape(12.dp),
+                    containerColor = if (selectedMapType == MapType.HYBRID) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+                    contentColor = if (selectedMapType == MapType.HYBRID) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(44.dp)
+                ) {
+                    Text(
+                        if (selectedMapType == MapType.HYBRID) "HYB" else "MAP",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                }
+
+                // 3. Zoom In (+)
                 FloatingActionButton(
                     onClick = {
                         scope.launch {
                             cameraPositionState.animate(CameraUpdateFactory.zoomIn())
                         }
                     },
-                    shape = CircleShape,
+                    shape = RoundedCornerShape(12.dp),
                     containerColor = MaterialTheme.colorScheme.surfaceVariant,
                     contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(44.dp)
@@ -736,45 +753,19 @@ fun TruckLvrMapScreen(
                     Text("+", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                 }
 
-                // 3. Zoom Out (-)
+                // 4. Zoom Out (-)
                 FloatingActionButton(
                     onClick = {
                         scope.launch {
                             cameraPositionState.animate(CameraUpdateFactory.zoomOut())
                         }
                     },
-                    shape = CircleShape,
+                    shape = RoundedCornerShape(12.dp),
                     containerColor = MaterialTheme.colorScheme.surfaceVariant,
                     contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(44.dp)
                 ) {
                     Text("-", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                }
-
-                // 4. Map Type View Toggle Button (MAP / SAT / HYB)
-                FloatingActionButton(
-                    onClick = {
-                        selectedMapType = when (selectedMapType) {
-                            MapType.NORMAL -> MapType.SATELLITE
-                            MapType.SATELLITE -> MapType.HYBRID
-                            else -> MapType.NORMAL
-                        }
-                    },
-                    shape = CircleShape,
-                    containerColor = if (selectedMapType != MapType.NORMAL) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
-                    contentColor = if (selectedMapType != MapType.NORMAL) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(44.dp)
-                ) {
-                    Text(
-                        when (selectedMapType) {
-                            MapType.NORMAL -> "MAP"
-                            MapType.SATELLITE -> "SAT"
-                            MapType.HYBRID -> "HYB"
-                            else -> "MAP"
-                        },
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.ExtraBold
-                    )
                 }
             }
         }
