@@ -707,11 +707,17 @@ fun TruckLvrMapScreen(
                     "${String.format(Locale.US, "%.1f", stop.mileMarker)} mi away • ${stop.address}"
                 }
 
+                val markerIcon = if (routeResult != null) {
+                    null // Standard Google pin for stops along the active route
+                } else {
+                    getBrandMarkerIcon(context, stop.name)
+                }
+
                 Marker(
                     state = remember(stop.location) { MarkerState(position = stop.location) },
                     title = stop.name,
                     snippet = snippetText,
-                    icon = remember(stop.name) { getBrandMarkerIcon(context, stop.name) },
+                    icon = markerIcon,
                     onClick = {
                         selectedStopOption = stop
                         scope.launch {
