@@ -377,6 +377,7 @@ fun TruckLvrMapScreen(
     var selectedCmvCategory by remember { mutableStateOf("ALL") }
     var isFetchingNearbyCmv by remember { mutableStateOf(false) }
     var lastNearbyFetchLocation by remember { mutableStateOf<LatLng?>(null) }
+    var currentCityWeather by remember { mutableStateOf<TruckWeatherInfo?>(null) }
 
     var isVoiceMuted by remember { mutableStateOf(false) }
 
@@ -455,6 +456,12 @@ fun TruckLvrMapScreen(
         if (routeResult == null) {
             fetchNearbyCmvLocations(center)
         }
+    }
+
+    LaunchedEffect(userCurrentLocation, cameraPositionState.position.target) {
+        val center = userCurrentLocation ?: cameraPositionState.position.target
+        val weather = TruckWeatherService.fetchWeatherForLocation(center)
+        currentCityWeather = weather
     }
 
     LaunchedEffect(isNavigating, activeStepIndex, routeResult) {
@@ -930,6 +937,83 @@ fun TruckLvrMapScreen(
                             style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.Bold,
                             color = Color(0xFFD32F2F)
+                        )
+                    }
+                }
+            }
+        }
+
+        // Floating Weather & High-Wind Badge Card (Top-Right)
+        val currentWeather = currentCityWeather
+        if (!isInlineSearching && currentWeather != null) {
+            Surface(
+                color = when {
+                    currentWeather.isSevereWindRolloverRisk -> Color(0xFFD32F2F)
+                    currentWeather.isHighWindWarning -> Color(0xFFF57C00)
+                    else -> MaterialTheme.colorScheme.surface.copy(alpha = 0.94f)
+                },
+                shape = RoundedCornerShape(14.dp),
+                shadowElevation = 6.dp,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(top = 74.dp, end = 12.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text(
+                        text = if (currentWeather.windGustsMph >= 30) "💨" else "🌤️",
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    Column {
+                        Text(
+                            text = "${currentWeather.tempFahrenheit}°F • ${currentWeather.weatherDescription}",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = if (currentWeather.isHighWindWarning) Color.White else MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = "Wind: ${currentWeather.formattedWindText}",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = if (currentWeather.isHighWindWarning) Color.White else MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+            }
+        }
+
+        // High-Wind Rollover Hazard Warning Banner
+        if (currentWeather != null && currentWeather.windGustsMph >= 35) {
+            Surface(
+                color = Color(0xFFD32F2F),
+                shape = RoundedCornerShape(14.dp),
+                shadowElevation = 8.dp,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp)
+                    .align(Alignment.TopCenter)
+                    .padding(top = 128.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text("⚠️", style = MaterialTheme.typography.titleMedium)
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "HIGH WIND ROLLOVER WARNING (${currentWeather.windGustsMph} MPH GUSTS)",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = Color.White
+                        )
+                        Text(
+                            text = "High-profile light / empty 53ft trailers exercise extreme caution or hold in safe truck parking.",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color.White.copy(alpha = 0.95f)
                         )
                     }
                 }
