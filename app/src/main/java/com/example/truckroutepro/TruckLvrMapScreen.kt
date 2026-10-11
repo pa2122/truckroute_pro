@@ -2345,6 +2345,115 @@ fun TruckLvrMapScreen(
                         )
                     }
 
+                    // Scale House & Rest Area Live Open/Closed Status Badge & Crowdsourcing Row
+                    val scaleReport = remember(activeSelectedStop.name) {
+                        TruckScaleStatusManager.getScaleStatus(context, activeSelectedStop.name)
+                    }
+                    var currentStatusReport by remember(activeSelectedStop.name) {
+                        mutableStateOf(scaleReport)
+                    }
+
+                    val isScaleOrRest = activeSelectedStop.name.uppercase().let { name ->
+                        name.contains("SCALE") || name.contains("WEIGH") || name.contains("PORT OF ENTRY") || name.contains("REST")
+                    }
+
+                    if (isScaleOrRest) {
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = Color(currentStatusReport.status.colorHex).copy(alpha = 0.15f),
+                            border = BorderStroke(1.5.dp, Color(currentStatusReport.status.colorHex)),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(10.dp),
+                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        Text(
+                                            when (currentStatusReport.status) {
+                                                ScaleStatus.OPEN -> "🟢"
+                                                ScaleStatus.CLOSED -> "🔴"
+                                                ScaleStatus.BYPASS -> "🔵"
+                                            },
+                                            style = MaterialTheme.typography.titleMedium
+                                        )
+                                        Text(
+                                            "STATUS: ${currentStatusReport.status.label}",
+                                            style = MaterialTheme.typography.labelLarge,
+                                            fontWeight = FontWeight.ExtraBold,
+                                            color = Color(currentStatusReport.status.colorHex)
+                                        )
+                                    }
+                                    Text(
+                                        currentStatusReport.timeAgoFormatted,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.secondary
+                                    )
+                                }
+
+                                Text(
+                                    "Reported by ${currentStatusReport.reporterName}. Tap below to update status for fellow drivers:",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    OutlinedButton(
+                                        onClick = {
+                                            TruckScaleStatusManager.reportScaleStatus(context, activeSelectedStop.name, ScaleStatus.OPEN, "Driver")
+                                            currentStatusReport = TruckScaleStatusManager.getScaleStatus(context, activeSelectedStop.name)
+                                            Toast.makeText(context, "Reported OPEN to truckers!", Toast.LENGTH_SHORT).show()
+                                        },
+                                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF2E7D32)),
+                                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                                        modifier = Modifier.weight(1f).height(32.dp)
+                                    ) {
+                                        Text("🟢 Open", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                                    }
+
+                                    OutlinedButton(
+                                        onClick = {
+                                            TruckScaleStatusManager.reportScaleStatus(context, activeSelectedStop.name, ScaleStatus.CLOSED, "Driver")
+                                            currentStatusReport = TruckScaleStatusManager.getScaleStatus(context, activeSelectedStop.name)
+                                            Toast.makeText(context, "Reported CLOSED to truckers!", Toast.LENGTH_SHORT).show()
+                                        },
+                                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFD32F2F)),
+                                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                                        modifier = Modifier.weight(1f).height(32.dp)
+                                    ) {
+                                        Text("🔴 Closed", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                                    }
+
+                                    OutlinedButton(
+                                        onClick = {
+                                            TruckScaleStatusManager.reportScaleStatus(context, activeSelectedStop.name, ScaleStatus.BYPASS, "Driver")
+                                            currentStatusReport = TruckScaleStatusManager.getScaleStatus(context, activeSelectedStop.name)
+                                            Toast.makeText(context, "Reported PREPASS BYPASS to truckers!", Toast.LENGTH_SHORT).show()
+                                        },
+                                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF1976D2)),
+                                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                                        modifier = Modifier.weight(1.2f).height(32.dp)
+                                    ) {
+                                        Text("🔵 PrePass", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                            }
+                        }
+
+                        HorizontalDivider()
+                    }
+
                     // Google Places Photo Carousel
                     if (activeSelectedStop.photoUrls.isNotEmpty()) {
                         Row(
