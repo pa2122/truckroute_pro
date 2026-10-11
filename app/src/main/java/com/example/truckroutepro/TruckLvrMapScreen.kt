@@ -47,6 +47,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -274,9 +275,16 @@ fun TruckLvrMapScreen(
     var driverHosState by remember { mutableStateOf(TruckHosManager.getDriverState(context)) }
     var activeHosRequirement by remember { mutableStateOf<HosRouteRequirement?>(null) }
     var showHosTripStartDialog by remember { mutableStateOf(false) }
-    var editDriveHours by remember(driverHosState) { mutableFloatStateOf(driverHosState.driveSecondsRemaining / 3600f) }
-    var editShiftHours by remember(driverHosState) { mutableFloatStateOf(driverHosState.shiftSecondsRemaining / 3600f) }
-    var editBreakHours by remember(driverHosState) { mutableFloatStateOf(driverHosState.breakSecondsRemaining / 3600f) }
+
+    var editDriveHrs by remember(driverHosState) { mutableIntStateOf((driverHosState.driveSecondsRemaining / 3600).toInt()) }
+    var editDriveMins by remember(driverHosState) { mutableIntStateOf(((driverHosState.driveSecondsRemaining % 3600) / 60).toInt()) }
+
+    var editShiftHrs by remember(driverHosState) { mutableIntStateOf((driverHosState.shiftSecondsRemaining / 3600).toInt()) }
+    var editShiftMins by remember(driverHosState) { mutableIntStateOf(((driverHosState.shiftSecondsRemaining % 3600) / 60).toInt()) }
+
+    var editBreakHrs by remember(driverHosState) { mutableIntStateOf((driverHosState.breakSecondsRemaining / 3600).toInt()) }
+    var editBreakMins by remember(driverHosState) { mutableIntStateOf(((driverHosState.breakSecondsRemaining % 3600) / 60).toInt()) }
+
     var isNavigating by remember { mutableStateOf(false) }
     var activeStepIndex by remember { mutableIntStateOf(0) }
     val voiceGuidance = remember { TruckVoiceGuidance(context) }
@@ -806,6 +814,9 @@ fun TruckLvrMapScreen(
                             width = 10f,
                             clickable = true,
                             onClick = {
+                                if (alt.alternativeRoutes.isNotEmpty()) {
+                                    activeAlternativeRoutes = alt.alternativeRoutes
+                                }
                                 routeResult = alt
                                 routePolyline = alt.polylinePoints
                                 fitRouteInCamera(alt.polylinePoints)
@@ -833,60 +844,39 @@ fun TruckLvrMapScreen(
                 )
             }
 
+            // Always render full active route polyline in solid blue so it NEVER disappears
             if (routePolyline.isNotEmpty()) {
+                Polyline(
+                    points = routePolyline,
+                    color = Color(0xFF1E88E5),
+                    width = 14f,
+                    jointType = JointType.ROUND,
+                    startCap = RoundCap(),
+                    endCap = RoundCap()
+                )
+
+                // Overlay red hazard segment on top if bridge/weight hazard exists
                 val primaryHazard = activeRouteHazards.firstOrNull()
                 if (primaryHazard != null && routePolyline.size >= 10) {
-                    val hazardIdx = routePolyline.indexOfFirst { computeDistanceMeters(it, primaryHazard.location) < 800f }.coerceAtLeast(0)
-                    val safeIdx = if (hazardIdx > 0) hazardIdx else (routePolyline.size * 0.4).toInt()
+                    val hazardIdx = routePolyline.indexOfFirst { computeDistanceMeters(it, primaryHazard.location) < 800f }
+                    val safeIdx = if (hazardIdx >= 0) hazardIdx else (routePolyline.size * 0.4).toInt()
 
                     val startIdx = (safeIdx - 8).coerceAtLeast(0)
                     val endIdx = (safeIdx + 8).coerceAtMost(routePolyline.size - 1)
 
-                    val segment1 = routePolyline.subList(0, (startIdx + 1).coerceAtMost(routePolyline.size))
-                    val hazardSegment = routePolyline.subList(startIdx, (endIdx + 1).coerceAtMost(routePolyline.size))
-                    val segment3 = routePolyline.subList(endIdx, routePolyline.size)
-
-                    if (segment1.size >= 2) {
-                        Polyline(
-                            points = segment1,
-                            color = Color(0xFF1E88E5),
-                            width = 14f,
-                            jointType = JointType.ROUND,
-                            startCap = RoundCap(),
-                            endCap = RoundCap()
-                        )
+                    if (endIdx > startIdx) {
+                        val hazardSegment = routePolyline.subList(startIdx, endIdx + 1)
+                        if (hazardSegment.size >= 2) {
+                            Polyline(
+                                points = hazardSegment,
+                                color = Color(0xFFD32F2F),
+                                width = 18f,
+                                jointType = JointType.ROUND,
+                                startCap = RoundCap(),
+                                endCap = RoundCap()
+                            )
+                        }
                     }
-
-                    if (hazardSegment.size >= 2) {
-                        Polyline(
-                            points = hazardSegment,
-                            color = Color(0xFFD32F2F),
-                            width = 18f,
-                            jointType = JointType.ROUND,
-                            startCap = RoundCap(),
-                            endCap = RoundCap()
-                        )
-                    }
-
-                    if (segment3.size >= 2) {
-                        Polyline(
-                            points = segment3,
-                            color = Color(0xFF1E88E5),
-                            width = 14f,
-                            jointType = JointType.ROUND,
-                            startCap = RoundCap(),
-                            endCap = RoundCap()
-                        )
-                    }
-                } else {
-                    Polyline(
-                        points = routePolyline,
-                        color = Color(0xFF1E88E5),
-                        width = 14f,
-                        jointType = JointType.ROUND,
-                        startCap = RoundCap(),
-                        endCap = RoundCap()
-                    )
                 }
             }
         }
@@ -2746,74 +2736,187 @@ fun TruckLvrMapScreen(
         AlertDialog(
             onDismissRequest = { showHosTripStartDialog = false },
             title = {
-                Text("Verify Hours-of-Service Clocks", fontWeight = FontWeight.ExtraBold)
+                Text("Verify Logbook HOS Clocks", fontWeight = FontWeight.ExtraBold)
             },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
                     Text(
-                        "Adjust your current logbook hours so route 30-minute breaks and 10-hour sleeper resets calculate accurately.",
+                        "Enter exact hours and minutes to match your official ELD logbook for precise route break calculations.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.secondary
                     )
 
-                    // Drive Clock
-                    Column {
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text("11h Drive Clock:", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
-                            Text("${String.format(Locale.US, "%.1f", editDriveHours)}h remaining", fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary)
+                    // 1. 11h Drive Clock Exact Inputs & Steppers
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("11h Drive Clock Remaining:", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            OutlinedButton(
+                                onClick = {
+                                    val totalMins = (editDriveHrs * 60 + editDriveMins - 15).coerceAtLeast(0)
+                                    editDriveHrs = totalMins / 60
+                                    editDriveMins = totalMins % 60
+                                },
+                                contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp),
+                                modifier = Modifier.height(36.dp)
+                            ) { Text("-15m", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold) }
+
+                            OutlinedTextField(
+                                value = if (editDriveHrs >= 0) editDriveHrs.toString() else "0",
+                                onValueChange = { editDriveHrs = (it.toIntOrNull() ?: 0).coerceIn(0, 11) },
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                label = { Text("Hrs") },
+                                modifier = Modifier.weight(1f).height(54.dp)
+                            )
+
+                            Text(":", fontWeight = FontWeight.Bold)
+
+                            OutlinedTextField(
+                                value = if (editDriveMins >= 0) editDriveMins.toString() else "0",
+                                onValueChange = { editDriveMins = (it.toIntOrNull() ?: 0).coerceIn(0, 59) },
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                label = { Text("Mins") },
+                                modifier = Modifier.weight(1f).height(54.dp)
+                            )
+
+                            OutlinedButton(
+                                onClick = {
+                                    val totalMins = (editDriveHrs * 60 + editDriveMins + 15).coerceAtMost(11 * 60)
+                                    editDriveHrs = totalMins / 60
+                                    editDriveMins = totalMins % 60
+                                },
+                                contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp),
+                                modifier = Modifier.height(36.dp)
+                            ) { Text("+15m", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold) }
                         }
-                        Slider(
-                            value = editDriveHours,
-                            onValueChange = { editDriveHours = it },
-                            valueRange = 0f..11f,
-                            steps = 21
-                        )
                     }
 
-                    // Shift Clock
-                    Column {
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text("14h Shift Clock:", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
-                            Text("${String.format(Locale.US, "%.1f", editShiftHours)}h remaining", fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary)
+                    // 2. 14h Shift Clock Exact Inputs & Steppers
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("14h Shift Clock Remaining:", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            OutlinedButton(
+                                onClick = {
+                                    val totalMins = (editShiftHrs * 60 + editShiftMins - 15).coerceAtLeast(0)
+                                    editShiftHrs = totalMins / 60
+                                    editShiftMins = totalMins % 60
+                                },
+                                contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp),
+                                modifier = Modifier.height(36.dp)
+                            ) { Text("-15m", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold) }
+
+                            OutlinedTextField(
+                                value = if (editShiftHrs >= 0) editShiftHrs.toString() else "0",
+                                onValueChange = { editShiftHrs = (it.toIntOrNull() ?: 0).coerceIn(0, 14) },
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                label = { Text("Hrs") },
+                                modifier = Modifier.weight(1f).height(54.dp)
+                            )
+
+                            Text(":", fontWeight = FontWeight.Bold)
+
+                            OutlinedTextField(
+                                value = if (editShiftMins >= 0) editShiftMins.toString() else "0",
+                                onValueChange = { editShiftMins = (it.toIntOrNull() ?: 0).coerceIn(0, 59) },
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                label = { Text("Mins") },
+                                modifier = Modifier.weight(1f).height(54.dp)
+                            )
+
+                            OutlinedButton(
+                                onClick = {
+                                    val totalMins = (editShiftHrs * 60 + editShiftMins + 15).coerceAtMost(14 * 60)
+                                    editShiftHrs = totalMins / 60
+                                    editShiftMins = totalMins % 60
+                                },
+                                contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp),
+                                modifier = Modifier.height(36.dp)
+                            ) { Text("+15m", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold) }
                         }
-                        Slider(
-                            value = editShiftHours,
-                            onValueChange = { editShiftHours = it },
-                            valueRange = 0f..14f,
-                            steps = 27
-                        )
                     }
 
-                    // Break Clock
-                    Column {
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text("Time Until 30m Break:", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
-                            Text("${String.format(Locale.US, "%.1f", editBreakHours)}h remaining", fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary)
+                    // 3. 30m Break Countdown Exact Inputs & Steppers
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("Time Until 30m Rest Break:", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            OutlinedButton(
+                                onClick = {
+                                    val totalMins = (editBreakHrs * 60 + editBreakMins - 15).coerceAtLeast(0)
+                                    editBreakHrs = totalMins / 60
+                                    editBreakMins = totalMins % 60
+                                },
+                                contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp),
+                                modifier = Modifier.height(36.dp)
+                            ) { Text("-15m", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold) }
+
+                            OutlinedTextField(
+                                value = if (editBreakHrs >= 0) editBreakHrs.toString() else "0",
+                                onValueChange = { editBreakHrs = (it.toIntOrNull() ?: 0).coerceIn(0, 8) },
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                label = { Text("Hrs") },
+                                modifier = Modifier.weight(1f).height(54.dp)
+                            )
+
+                            Text(":", fontWeight = FontWeight.Bold)
+
+                            OutlinedTextField(
+                                value = if (editBreakMins >= 0) editBreakMins.toString() else "0",
+                                onValueChange = { editBreakMins = (it.toIntOrNull() ?: 0).coerceIn(0, 59) },
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                label = { Text("Mins") },
+                                modifier = Modifier.weight(1f).height(54.dp)
+                            )
+
+                            OutlinedButton(
+                                onClick = {
+                                    val totalMins = (editBreakHrs * 60 + editBreakMins + 15).coerceAtMost(8 * 60)
+                                    editBreakHrs = totalMins / 60
+                                    editBreakMins = totalMins % 60
+                                },
+                                contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp),
+                                modifier = Modifier.height(36.dp)
+                            ) { Text("+15m", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold) }
                         }
-                        Slider(
-                            value = editBreakHours,
-                            onValueChange = { editBreakHours = it },
-                            valueRange = 0f..8f,
-                            steps = 15
-                        )
                     }
 
                     TextButton(
                         onClick = {
-                            editDriveHours = 11f
-                            editShiftHours = 14f
-                            editBreakHours = 8f
+                            editDriveHrs = 11; editDriveMins = 0
+                            editShiftHrs = 14; editShiftMins = 0
+                            editBreakHrs = 8; editBreakMins = 0
                         },
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text("⚡ Reset to Full Shift Clocks (11h / 14h / 8h)")
+                        Text("⚡ Reset to Full Shift (11h00m / 14h00m / 8h00m)")
                     }
                 }
             },
             confirmButton = {
                 Button(
                     onClick = {
-                        val updated = TruckHosManager.updateCustomClocks(context, editDriveHours, editShiftHours, editBreakHours)
+                        val updated = TruckHosManager.updateCustomClocksExact(
+                            context = context,
+                            driveHours = editDriveHrs,
+                            driveMins = editDriveMins,
+                            shiftHours = editShiftHrs,
+                            shiftMins = editShiftMins,
+                            breakHours = editBreakHrs,
+                            breakMins = editBreakMins
+                        )
                         driverHosState = updated
 
                         val res = routeResult
@@ -2848,7 +2951,7 @@ fun TruckLvrMapScreen(
                         }
                     }
                 ) {
-                    Text("Confirm & Start Guidance", fontWeight = FontWeight.Bold)
+                    Text("Confirm & Recalculate Rest Stops", fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
