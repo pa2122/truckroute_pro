@@ -20,4 +20,10 @@ data class TruckProfile(
 
     val formattedHeight: String
         get() = "${heightFeet}' ${heightInches}\""
+
+    val isFlatbedOrOpenCargo: Boolean
+        get() {
+            val upper = trailerType.uppercase()
+            return upper.contains("FLATBED") || upper.contains("STEPDECK") || upper.contains("LOWBOY") || upper.contains("OPEN") || upper.contains("CONESTOGA") || upper.contains("HOTSHOT")
+        }
 }

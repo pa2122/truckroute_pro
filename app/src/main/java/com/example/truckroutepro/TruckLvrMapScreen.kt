@@ -271,6 +271,12 @@ fun TruckLvrMapScreen(
     var activeStepIndex by remember { mutableIntStateOf(0) }
     val voiceGuidance = remember { TruckVoiceGuidance(context) }
 
+    var totalFlatbedMilesTraveled by remember { mutableFloatStateOf(0f) }
+    var lastSecurementCheckMiles by remember { mutableFloatStateOf(0f) }
+    var showSecurementWarningBanner by remember { mutableStateOf(false) }
+    var securementCheckTargetMiles by remember { mutableIntStateOf(50) }
+    var lastTripLocation by remember { mutableStateOf<LatLng?>(null) }
+
     LaunchedEffect(hasLocationPermission) {
         if (!hasLocationPermission) {
             permissionLauncher.launch(
@@ -333,6 +339,23 @@ fun TruckLvrMapScreen(
                                             }
                                         }
                                     }
+                                }
+
+                                if (truckProfile.isFlatbedOrOpenCargo) {
+                                    val prevLoc = lastTripLocation
+                                    if (prevLoc != null) {
+                                        val distMeters = computeDistanceMeters(prevLoc, driverLatLng)
+                                        val distMiles = distMeters / 1609.344f
+                                        totalFlatbedMilesTraveled += distMiles
+
+                                        val milesSinceCheck = totalFlatbedMilesTraveled - lastSecurementCheckMiles
+                                        if (milesSinceCheck >= securementCheckTargetMiles && !showSecurementWarningBanner) {
+                                            showSecurementWarningBanner = true
+                                            val promptText = "Attention driver. Mandatory DOT load securement check required. Inspect straps, chains, and binder tension at next safe stop."
+                                            voiceGuidance.speakInstruction(promptText, force = true)
+                                        }
+                                    }
+                                    lastTripLocation = driverLatLng
                                 }
                             }
                         }
@@ -1015,6 +1038,61 @@ fun TruckLvrMapScreen(
                             style = MaterialTheme.typography.labelSmall,
                             color = Color.White.copy(alpha = 0.95f)
                         )
+                    }
+                }
+            }
+        }
+
+        // FMCSA § 392.9 Flatbed Load Securement Checkpoint Warning Banner
+        if (showSecurementWarningBanner && truckProfile.isFlatbedOrOpenCargo) {
+            Surface(
+                color = Color(0xFFD32F2F),
+                shape = RoundedCornerShape(16.dp),
+                shadowElevation = 10.dp,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp)
+                    .align(Alignment.TopCenter)
+                    .padding(top = 130.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text("⚠️", style = MaterialTheme.typography.titleMedium)
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "MANDATORY LOAD SECUREMENT CHECK (FMCSA § 392.9)",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = Color.White
+                            )
+                            val checkLabel = if (securementCheckTargetMiles == 50) "First 50 Miles Traveled" else "150 Miles Traveled"
+                            Text(
+                                text = "$checkLabel. Inspect straps, chains, binders, tarps, and edge protectors at next safe stop.",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Color.White.copy(alpha = 0.95f)
+                            )
+                        }
+                    }
+
+                    Button(
+                        onClick = {
+                            showSecurementWarningBanner = false
+                            lastSecurementCheckMiles = totalFlatbedMilesTraveled
+                            securementCheckTargetMiles = 150
+                            Toast.makeText(context, "Cargo securement check recorded! Counter reset for 150 miles.", Toast.LENGTH_LONG).show()
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color(0xFFD32F2F)),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("✔ Straps & Chains Inspected & Tight", fontWeight = FontWeight.ExtraBold)
                     }
                 }
             }
