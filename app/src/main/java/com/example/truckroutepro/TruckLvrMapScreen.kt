@@ -813,15 +813,71 @@ fun TruckLvrMapScreen(
                 }
             }
 
-            if (routePolyline.isNotEmpty()) {
-                Polyline(
-                    points = routePolyline,
-                    color = Color(0xFF1E88E5),
-                    width = 14f,
-                    jointType = JointType.ROUND,
-                    startCap = RoundCap(),
-                    endCap = RoundCap()
+            // Bridge Clearance & Weight Hazard Markers
+            activeRouteHazards.forEach { hazard ->
+                Marker(
+                    state = remember(hazard.location) { MarkerState(position = hazard.location) },
+                    title = "🚨 ${hazard.title}",
+                    snippet = hazard.description,
+                    icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED)
                 )
+            }
+
+            if (routePolyline.isNotEmpty()) {
+                val primaryHazard = activeRouteHazards.firstOrNull()
+                if (primaryHazard != null && routePolyline.size >= 10) {
+                    val hazardIdx = routePolyline.indexOfFirst { computeDistanceMeters(it, primaryHazard.location) < 800f }.coerceAtLeast(0)
+                    val safeIdx = if (hazardIdx > 0) hazardIdx else (routePolyline.size * 0.4).toInt()
+
+                    val startIdx = (safeIdx - 8).coerceAtLeast(0)
+                    val endIdx = (safeIdx + 8).coerceAtMost(routePolyline.size - 1)
+
+                    val segment1 = routePolyline.subList(0, (startIdx + 1).coerceAtMost(routePolyline.size))
+                    val hazardSegment = routePolyline.subList(startIdx, (endIdx + 1).coerceAtMost(routePolyline.size))
+                    val segment3 = routePolyline.subList(endIdx, routePolyline.size)
+
+                    if (segment1.size >= 2) {
+                        Polyline(
+                            points = segment1,
+                            color = Color(0xFF1E88E5),
+                            width = 14f,
+                            jointType = JointType.ROUND,
+                            startCap = RoundCap(),
+                            endCap = RoundCap()
+                        )
+                    }
+
+                    if (hazardSegment.size >= 2) {
+                        Polyline(
+                            points = hazardSegment,
+                            color = Color(0xFFD32F2F),
+                            width = 18f,
+                            jointType = JointType.ROUND,
+                            startCap = RoundCap(),
+                            endCap = RoundCap()
+                        )
+                    }
+
+                    if (segment3.size >= 2) {
+                        Polyline(
+                            points = segment3,
+                            color = Color(0xFF1E88E5),
+                            width = 14f,
+                            jointType = JointType.ROUND,
+                            startCap = RoundCap(),
+                            endCap = RoundCap()
+                        )
+                    }
+                } else {
+                    Polyline(
+                        points = routePolyline,
+                        color = Color(0xFF1E88E5),
+                        width = 14f,
+                        jointType = JointType.ROUND,
+                        startCap = RoundCap(),
+                        endCap = RoundCap()
+                    )
+                }
             }
         }
 
