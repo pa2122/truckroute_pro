@@ -267,6 +267,7 @@ fun TruckLvrMapScreen(
     var currentOriginText by remember { mutableStateOf(mabankAddressText) }
 
     var routeResult by remember { mutableStateOf<TruckRouteResult?>(null) }
+    var activeRouteHazards by remember { mutableStateOf<List<BridgeHazardItem>>(emptyList()) }
     var isNavigating by remember { mutableStateOf(false) }
     var activeStepIndex by remember { mutableIntStateOf(0) }
     val voiceGuidance = remember { TruckVoiceGuidance(context) }
@@ -658,6 +659,13 @@ fun TruckLvrMapScreen(
                 activeAlternativeRoutes = result.alternativeRoutes
                 fitRouteInCamera(result.polylinePoints)
 
+                val hazards = TruckBridgeHazardService.evaluateRouteHazards(
+                    routePolyline = result.polylinePoints,
+                    profile = truckProfile,
+                    totalDistanceMiles = result.distanceMiles
+                )
+                activeRouteHazards = hazards
+
                 val stops = searchAllTruckStopsAlongRoute(
                     apiKey = "AIzaSyAcscUaSZ1EGCuTGb81kgLD4ul92DXpn5E",
                     routePolyline = result.polylinePoints,
@@ -1035,6 +1043,42 @@ fun TruckLvrMapScreen(
                         )
                         Text(
                             text = "High-profile light / empty 53ft trailers exercise extreme caution or hold in safe truck parking.",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color.White.copy(alpha = 0.95f)
+                        )
+                    }
+                }
+            }
+        }
+
+        // Bridge Clearance & Weight Limit Warning HUD Banner
+        val primaryBridgeHazard = activeRouteHazards.firstOrNull()
+        if (primaryBridgeHazard != null && routeResult != null && !isInlineSearching) {
+            Surface(
+                color = Color(0xFFD32F2F),
+                shape = RoundedCornerShape(14.dp),
+                shadowElevation = 8.dp,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp)
+                    .align(Alignment.TopCenter)
+                    .padding(top = 128.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text("🚨", style = MaterialTheme.typography.titleMedium)
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "${primaryBridgeHazard.title.uppercase()} (${String.format(Locale.US, "%.1f", primaryBridgeHazard.distanceMiles)} MI AHEAD)",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = Color.White
+                        )
+                        Text(
+                            text = primaryBridgeHazard.description,
                             style = MaterialTheme.typography.labelSmall,
                             color = Color.White.copy(alpha = 0.95f)
                         )
