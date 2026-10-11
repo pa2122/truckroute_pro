@@ -43,10 +43,13 @@ data class HosDriverState(
 data class HosRouteRequirement(
     val requires30MinBreak: Boolean = false,
     val requires10HourReset: Boolean = false,
+    val requires34HourRestart: Boolean = false,
     val estimatedBreakMile: Double = 0.0,
     val estimatedResetMile: Double = 0.0,
+    val estimatedRestartMile: Double = 0.0,
     val breakRecommendedLocation: String = "",
-    val resetRecommendedLocation: String = ""
+    val resetRecommendedLocation: String = "",
+    val restartRecommendedLocation: String = ""
 )
 
 object TruckHosManager {
@@ -146,17 +149,21 @@ object TruckHosManager {
         shiftHours: Int,
         shiftMins: Int,
         breakHours: Int,
-        breakMins: Int
+        breakMins: Int,
+        cycleHours: Int = 70,
+        cycleMins: Int = 0
     ): HosDriverState {
         val currentState = getDriverState(context)
         val driveSecs = (driveHours * 3600L + driveMins * 60L).coerceIn(0L, 11 * 3600L)
         val shiftSecs = (shiftHours * 3600L + shiftMins * 60L).coerceIn(0L, 14 * 3600L)
         val breakSecs = (breakHours * 3600L + breakMins * 60L).coerceIn(0L, 8 * 3600L)
+        val cycleSecs = (cycleHours * 3600L + cycleMins * 60L).coerceIn(0L, 70 * 3600L)
 
         val updated = currentState.copy(
             driveSecondsRemaining = driveSecs,
             shiftSecondsRemaining = shiftSecs,
             breakSecondsRemaining = breakSecs,
+            cycleSecondsRemaining = cycleSecs,
             lastStatusChangeMs = System.currentTimeMillis()
         )
         saveDriverState(context, updated)
@@ -184,9 +191,11 @@ object TruckHosManager {
         val routeSecs = routeMins * 60L
         val remainingDriveSecs = driverState.driveSecondsRemaining
         val remainingBreakSecs = driverState.breakSecondsRemaining
+        val remainingCycleSecs = driverState.cycleSecondsRemaining
 
         val needs30mBreak = routeSecs > remainingBreakSecs
         val needs10hReset = routeSecs > remainingDriveSecs
+        val needs34hRestart = routeSecs > remainingCycleSecs
 
         val avgSpeedMph = if (routeMins > 0) (totalMiles / (routeMins / 60.0)).coerceIn(30.0, 70.0) else 55.0
 
@@ -198,13 +207,20 @@ object TruckHosManager {
             ((remainingDriveSecs / 3600.0) * avgSpeedMph).coerceAtMost(totalMiles * 0.9)
         } else 0.0
 
+        val restartMile = if (needs34hRestart) {
+            ((remainingCycleSecs / 3600.0) * avgSpeedMph).coerceAtMost(totalMiles * 0.9)
+        } else 0.0
+
         return HosRouteRequirement(
             requires30MinBreak = needs30mBreak,
             requires10HourReset = needs10hReset,
+            requires34HourRestart = needs34hRestart,
             estimatedBreakMile = breakMile,
             estimatedResetMile = resetMile,
+            estimatedRestartMile = restartMile,
             breakRecommendedLocation = "Love's Travel Stop (Mile ${String.format(Locale.US, "%.1f", breakMile)})",
-            resetRecommendedLocation = "TA Travel Center (Mile ${String.format(Locale.US, "%.1f", resetMile)})"
+            resetRecommendedLocation = "TA Travel Center (Mile ${String.format(Locale.US, "%.1f", resetMile)})",
+            restartRecommendedLocation = "Petro Stopping Center (Mile ${String.format(Locale.US, "%.1f", restartMile)})"
         )
     }
 }

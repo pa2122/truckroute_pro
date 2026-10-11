@@ -285,6 +285,9 @@ fun TruckLvrMapScreen(
     var editBreakHrs by remember(driverHosState) { mutableIntStateOf((driverHosState.breakSecondsRemaining / 3600).toInt()) }
     var editBreakMins by remember(driverHosState) { mutableIntStateOf(((driverHosState.breakSecondsRemaining % 3600) / 60).toInt()) }
 
+    var editCycleHrs by remember(driverHosState) { mutableIntStateOf((driverHosState.cycleSecondsRemaining / 3600).toInt()) }
+    var editCycleMins by remember(driverHosState) { mutableIntStateOf(((driverHosState.cycleSecondsRemaining % 3600) / 60).toInt()) }
+
     var isNavigating by remember { mutableStateOf(false) }
     var activeStepIndex by remember { mutableIntStateOf(0) }
     val voiceGuidance = remember { TruckVoiceGuidance(context) }
@@ -2893,15 +2896,65 @@ fun TruckLvrMapScreen(
                         }
                     }
 
+                    // 4. 70h 8-Day Cycle Clock Exact Inputs & Steppers
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("70h 8-Day Cycle Clock Remaining:", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            OutlinedButton(
+                                onClick = {
+                                    val totalMins = (editCycleHrs * 60 + editCycleMins - 15).coerceAtLeast(0)
+                                    editCycleHrs = totalMins / 60
+                                    editCycleMins = totalMins % 60
+                                },
+                                contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp),
+                                modifier = Modifier.height(36.dp)
+                            ) { Text("-15m", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold) }
+
+                            OutlinedTextField(
+                                value = if (editCycleHrs >= 0) editCycleHrs.toString() else "0",
+                                onValueChange = { editCycleHrs = (it.toIntOrNull() ?: 0).coerceIn(0, 70) },
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                label = { Text("Hrs") },
+                                modifier = Modifier.weight(1f).height(54.dp)
+                            )
+
+                            Text(":", fontWeight = FontWeight.Bold)
+
+                            OutlinedTextField(
+                                value = if (editCycleMins >= 0) editCycleMins.toString() else "0",
+                                onValueChange = { editCycleMins = (it.toIntOrNull() ?: 0).coerceIn(0, 59) },
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                label = { Text("Mins") },
+                                modifier = Modifier.weight(1f).height(54.dp)
+                            )
+
+                            OutlinedButton(
+                                onClick = {
+                                    val totalMins = (editCycleHrs * 60 + editCycleMins + 15).coerceAtMost(70 * 60)
+                                    editCycleHrs = totalMins / 60
+                                    editCycleMins = totalMins % 60
+                                },
+                                contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp),
+                                modifier = Modifier.height(36.dp)
+                            ) { Text("+15m", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold) }
+                        }
+                    }
+
                     TextButton(
                         onClick = {
                             editDriveHrs = 11; editDriveMins = 0
                             editShiftHrs = 14; editShiftMins = 0
                             editBreakHrs = 8; editBreakMins = 0
+                            editCycleHrs = 70; editCycleMins = 0
                         },
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text("⚡ Reset to Full Shift (11h00m / 14h00m / 8h00m)")
+                        Text("⚡ Reset to Full Shift & Cycle (11h / 14h / 8h / 70h)")
                     }
                 }
             },
@@ -2915,7 +2968,9 @@ fun TruckLvrMapScreen(
                             shiftHours = editShiftHrs,
                             shiftMins = editShiftMins,
                             breakHours = editBreakHrs,
-                            breakMins = editBreakMins
+                            breakMins = editBreakMins,
+                            cycleHours = editCycleHrs,
+                            cycleMins = editCycleMins
                         )
                         driverHosState = updated
 
@@ -2930,25 +2985,6 @@ fun TruckLvrMapScreen(
                         }
 
                         showHosTripStartDialog = false
-                        isNavigating = true
-
-                        val startPos = res?.polylinePoints?.firstOrNull() ?: userCurrentLocation
-                        val nextPos = res?.polylinePoints?.getOrNull(1) ?: res?.polylinePoints?.lastOrNull()
-                        if (startPos != null) {
-                            val initialBearing = if (nextPos != null) calculateBearing(startPos, nextPos) else 0f
-                            scope.launch {
-                                cameraPositionState.animate(
-                                    CameraUpdateFactory.newCameraPosition(
-                                        CameraPosition.Builder()
-                                            .target(startPos)
-                                            .zoom(17.5f)
-                                            .tilt(55f)
-                                            .bearing(initialBearing)
-                                            .build()
-                                    )
-                                )
-                            }
-                        }
                     }
                 ) {
                     Text("Confirm & Recalculate Rest Stops", fontWeight = FontWeight.Bold)
