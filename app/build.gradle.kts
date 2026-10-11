@@ -4,6 +4,7 @@ plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
+    id("com.google.devtools.ksp")
 }
 
 kotlin {
@@ -68,6 +69,12 @@ dependencies {
 
     // 🖼️ Coil Image Loading
     implementation("io.coil-kt:coil-compose:2.7.0")
+
+    // 💾 Room Database for Offline Caching & Saved Favorites
+    val roomVersion = "2.6.1"
+    implementation("androidx.room:room-runtime:$roomVersion")
+    implementation("androidx.room:room-ktx:$roomVersion")
+    ksp("androidx.room:room-compiler:$roomVersion")
 
     // Markdown
     implementation("com.github.jeziellago:compose-markdown:0.5.6")
