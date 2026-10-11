@@ -5,6 +5,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -15,6 +16,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Menu
@@ -27,6 +29,8 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -125,6 +129,8 @@ fun TruckRouteProApp() {
     var selectedOrientationMode by remember { mutableStateOf("SMART_AUTO") }
     var vehicleSectionExpanded by remember { mutableStateOf(true) }
     var navigationSectionExpanded by remember { mutableStateOf(true) }
+    var hosSectionExpanded by remember { mutableStateOf(true) }
+    var driverHosState by remember { mutableStateOf(TruckHosManager.getDriverState(context)) }
 
     ModalNavigationDrawer(
         drawerState = drawerState,
@@ -196,6 +202,124 @@ fun TruckRouteProApp() {
                                 scope.launch { drawerState.close() }
                             }
                         )
+                    }
+
+                    HorizontalDivider()
+
+                    // Hours-of-Service (HOS) Section Dropdown
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Hours-of-Service (HOS) Clocks", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                        TextButton(onClick = { hosSectionExpanded = !hosSectionExpanded }) {
+                            Text(if (hosSectionExpanded) "Hide" else "Show")
+                        }
+                    }
+
+                    if (hosSectionExpanded) {
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(12.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Text(
+                                    "Current Duty Status: ${driverHosState.currentStatus.label}",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+
+                                // One-Tap Duty Status Chips
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .horizontalScroll(rememberScrollState()),
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    HosDutyStatus.entries.forEach { status ->
+                                        val isSelected = driverHosState.currentStatus == status
+                                        FilterChip(
+                                            selected = isSelected,
+                                            onClick = {
+                                                driverHosState = TruckHosManager.updateDutyStatus(context, status)
+                                            },
+                                            label = {
+                                                Text(
+                                                    status.shortCode,
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    fontWeight = FontWeight.Bold
+                                                )
+                                            },
+                                            colors = FilterChipDefaults.filterChipColors(
+                                                selectedContainerColor = MaterialTheme.colorScheme.primary,
+                                                selectedLabelColor = MaterialTheme.colorScheme.onPrimary
+                                            ),
+                                            modifier = Modifier.height(30.dp)
+                                        )
+                                    }
+                                }
+
+                                HorizontalDivider()
+
+                                // Live Countdown Clocks Grid
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Column {
+                                        Text("11h Drive", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.secondary)
+                                        Text(
+                                            driverHosState.formattedDriveRemaining,
+                                            style = MaterialTheme.typography.labelMedium,
+                                            fontWeight = FontWeight.ExtraBold,
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
+                                    }
+
+                                    Column {
+                                        Text("14h Shift", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.secondary)
+                                        Text(
+                                            driverHosState.formattedShiftRemaining,
+                                            style = MaterialTheme.typography.labelMedium,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+
+                                    Column {
+                                        Text("30m Break", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.secondary)
+                                        Text(
+                                            driverHosState.formattedBreakRemaining,
+                                            style = MaterialTheme.typography.labelMedium,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+
+                                    Column {
+                                        Text("70h Cycle", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.secondary)
+                                        Text(
+                                            driverHosState.formattedCycleRemaining,
+                                            style = MaterialTheme.typography.labelSmall,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                }
+
+                                OutlinedButton(
+                                    onClick = {
+                                        driverHosState = TruckHosManager.resetClocksToFull(context)
+                                    },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    contentPadding = PaddingValues(vertical = 2.dp)
+                                ) {
+                                    Text("Reset Clocks (10h Sleeper / 34h Reset)", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
                     }
 
                     HorizontalDivider()
