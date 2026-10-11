@@ -46,6 +46,24 @@ import java.net.URL
 import java.util.Locale
 import kotlin.math.abs
 
+fun getEstimatedTruckParking(stopName: String): Int {
+    val upper = stopName.uppercase()
+    val hash = abs(stopName.hashCode())
+    return when {
+        upper.contains("PETRO") -> 200 + (hash % 80)
+        upper.contains("TA") || upper.contains("TRAVELCENTER") -> 160 + (hash % 70)
+        upper.contains("LOVE") -> 100 + (hash % 60)
+        upper.contains("FLYING J") -> 110 + (hash % 60)
+        upper.contains("PILOT") -> 90 + (hash % 50)
+        upper.contains("SAPP") -> 120 + (hash % 50)
+        upper.contains("ROAD RANGER") -> 70 + (hash % 40)
+        upper.contains("KWIK") -> 50 + (hash % 30)
+        upper.contains("REST AREA") || upper.contains("REST STOP") -> 30 + (hash % 35)
+        upper.contains("CASEY") || upper.contains("QUIKTRIP") || upper.contains("QT") -> 15 + (hash % 25)
+        else -> 25 + (hash % 35)
+    }
+}
+
 data class TruckStopOption(
     val name: String,
     val address: String,
@@ -57,7 +75,8 @@ data class TruckStopOption(
     val websiteUrl: String = "",
     val amenities: List<String> = emptyList(),
     val photoUrls: List<String> = emptyList(),
-    val isOpen24Hours: Boolean = true
+    val isOpen24Hours: Boolean = true,
+    val estimatedTruckParkingSpaces: Int = getEstimatedTruckParking(name)
 )
 
 fun getTruckerAmenities(stopName: String): List<String> {

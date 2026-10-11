@@ -2467,6 +2467,28 @@ fun TruckLvrMapScreen(
                         )
                     }
 
+                    // Commercial Truck Parking Space Estimates Badge
+                    val parkingSpaces = activeSelectedStop.estimatedTruckParkingSpaces
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.85f),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text("🅿️", style = MaterialTheme.typography.titleMedium)
+                            Text(
+                                text = "Estimated Commercial Truck Parking: ~$parkingSpaces Spaces",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer
+                            )
+                        }
+                    }
+
                     // Scale House & Rest Area Live Open/Closed Status Badge & Crowdsourcing Row
                     val scaleReport = remember(activeSelectedStop.name) {
                         TruckScaleStatusManager.getScaleStatus(context, activeSelectedStop.name)
