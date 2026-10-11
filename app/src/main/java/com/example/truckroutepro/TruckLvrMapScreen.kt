@@ -268,6 +268,8 @@ fun TruckLvrMapScreen(
 
     var routeResult by remember { mutableStateOf<TruckRouteResult?>(null) }
     var activeRouteHazards by remember { mutableStateOf<List<BridgeHazardItem>>(emptyList()) }
+    var driverHosState by remember { mutableStateOf(TruckHosManager.getDriverState(context)) }
+    var activeHosRequirement by remember { mutableStateOf<HosRouteRequirement?>(null) }
     var isNavigating by remember { mutableStateOf(false) }
     var activeStepIndex by remember { mutableIntStateOf(0) }
     val voiceGuidance = remember { TruckVoiceGuidance(context) }
@@ -665,6 +667,13 @@ fun TruckLvrMapScreen(
                     totalDistanceMiles = result.distanceMiles
                 )
                 activeRouteHazards = hazards
+
+                val hosReq = TruckHosManager.evaluateRouteHosRequirements(
+                    routeMins = result.durationMins,
+                    totalMiles = result.distanceMiles,
+                    driverState = driverHosState
+                )
+                activeHosRequirement = hosReq
 
                 val stops = searchAllTruckStopsAlongRoute(
                     apiKey = "AIzaSyAcscUaSZ1EGCuTGb81kgLD4ul92DXpn5E",
@@ -1079,6 +1088,52 @@ fun TruckLvrMapScreen(
                         )
                         Text(
                             text = primaryBridgeHazard.description,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color.White.copy(alpha = 0.95f)
+                        )
+                    }
+                }
+            }
+        }
+
+        // Route HOS Rest Break / Sleeper Reset Requirement Banner
+        val hosReq = activeHosRequirement
+        if (hosReq != null && routeResult != null && (hosReq.requires30MinBreak || hosReq.requires10HourReset) && !isInlineSearching) {
+            Surface(
+                color = Color(0xFF1565C0),
+                shape = RoundedCornerShape(14.dp),
+                shadowElevation = 8.dp,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp)
+                    .align(Alignment.TopCenter)
+                    .padding(top = 130.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text("⏱️", style = MaterialTheme.typography.titleMedium)
+                    Column(modifier = Modifier.weight(1f)) {
+                        val headerText = if (hosReq.requires10HourReset) {
+                            "HOS 10H SLEEPER RESET REQUIRED (11H DRIVE CLOCK LIMIT)"
+                        } else {
+                            "HOS 30M REST BREAK REQUIRED (8H DRIVE LIMIT)"
+                        }
+                        Text(
+                            text = headerText,
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = Color.White
+                        )
+                        val locationDesc = if (hosReq.requires10HourReset) {
+                            "Scheduled 10h Sleeper Berth Reset at ${hosReq.resetRecommendedLocation}."
+                        } else {
+                            "Scheduled 30m Rest Break at ${hosReq.breakRecommendedLocation}."
+                        }
+                        Text(
+                            text = locationDesc,
                             style = MaterialTheme.typography.labelSmall,
                             color = Color.White.copy(alpha = 0.95f)
                         )
