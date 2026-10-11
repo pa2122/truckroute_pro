@@ -238,6 +238,31 @@ object TruckPlacesService {
             }
         }
 
+        // 4. Fallback: OpenStreetMap Nominatim Geocoding API
+        try {
+            val encodedAddr = URLEncoder.encode(clean, "UTF-8")
+            val urlStr = "https://nominatim.openstreetmap.org/search?format=json&countrycodes=us&q=$encodedAddr"
+            val conn = URL(urlStr).openConnection() as HttpURLConnection
+            conn.setRequestProperty("User-Agent", "TruckRoutePro-Android/1.0")
+            conn.connectTimeout = 5000
+            conn.readTimeout = 5000
+
+            if (conn.responseCode == 200) {
+                val jsonText = conn.inputStream.bufferedReader().use { it.readText() }
+                val array = org.json.JSONArray(jsonText)
+                if (array.length() > 0) {
+                    val obj = array.getJSONObject(0)
+                    val lat = obj.optDouble("lat", 0.0)
+                    val lng = obj.optDouble("lon", 0.0)
+                    if (lat != 0.0 || lng != 0.0) {
+                        return@withContext LatLng(lat, lng)
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("TruckPlacesService", "Error in Nominatim Geocoding API fallback", e)
+        }
+
         null
     }
 

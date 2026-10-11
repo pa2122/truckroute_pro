@@ -1165,7 +1165,12 @@ fun TruckLvrMapScreen(
                                                     isInlineSearching = false
                                                     recentInlineSearches = SearchHistoryManager.getRecentSearches(context)
                                                     scope.launch {
-                                                        val details = TruckPlacesService.getPlaceDetails("AIzaSyAcscUaSZ1EGCuTGb81kgLD4ul92DXpn5E", pred.placeId)
+                                                        val details = TruckPlacesService.getPlaceDetails(
+                                                            apiKey = "AIzaSyAcscUaSZ1EGCuTGb81kgLD4ul92DXpn5E",
+                                                            placeId = pred.placeId,
+                                                            fallbackAddress = pred.fullDescription,
+                                                            context = context
+                                                        )
                                                         if (details != null) {
                                                             SearchHistoryManager.addSearchItem(context, pred.primaryText, details.formattedAddress, details.location)
                                                             calculateRoute(details.location, details.formattedAddress)
