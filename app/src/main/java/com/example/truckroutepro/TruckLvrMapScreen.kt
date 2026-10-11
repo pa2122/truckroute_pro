@@ -276,17 +276,34 @@ fun TruckLvrMapScreen(
     var activeHosRequirement by remember { mutableStateOf<HosRouteRequirement?>(null) }
     var showHosTripStartDialog by remember { mutableStateOf(false) }
 
-    var editDriveHrs by remember(driverHosState) { mutableIntStateOf((driverHosState.driveSecondsRemaining / 3600).toInt()) }
-    var editDriveMins by remember(driverHosState) { mutableIntStateOf(((driverHosState.driveSecondsRemaining % 3600) / 60).toInt()) }
+    var driveHrsStr by remember { mutableStateOf("11") }
+    var driveMinsStr by remember { mutableStateOf("0") }
 
-    var editShiftHrs by remember(driverHosState) { mutableIntStateOf((driverHosState.shiftSecondsRemaining / 3600).toInt()) }
-    var editShiftMins by remember(driverHosState) { mutableIntStateOf(((driverHosState.shiftSecondsRemaining % 3600) / 60).toInt()) }
+    var shiftHrsStr by remember { mutableStateOf("14") }
+    var shiftMinsStr by remember { mutableStateOf("0") }
 
-    var editBreakHrs by remember(driverHosState) { mutableIntStateOf((driverHosState.breakSecondsRemaining / 3600).toInt()) }
-    var editBreakMins by remember(driverHosState) { mutableIntStateOf(((driverHosState.breakSecondsRemaining % 3600) / 60).toInt()) }
+    var breakHrsStr by remember { mutableStateOf("8") }
+    var breakMinsStr by remember { mutableStateOf("0") }
 
-    var editCycleHrs by remember(driverHosState) { mutableIntStateOf((driverHosState.cycleSecondsRemaining / 3600).toInt()) }
-    var editCycleMins by remember(driverHosState) { mutableIntStateOf(((driverHosState.cycleSecondsRemaining % 3600) / 60).toInt()) }
+    var cycleHrsStr by remember { mutableStateOf("70") }
+    var cycleMinsStr by remember { mutableStateOf("0") }
+
+    LaunchedEffect(showHosTripStartDialog) {
+        if (showHosTripStartDialog) {
+            val state = driverHosState
+            driveHrsStr = (state.driveSecondsRemaining / 3600).toString()
+            driveMinsStr = ((state.driveSecondsRemaining % 3600) / 60).toString()
+
+            shiftHrsStr = (state.shiftSecondsRemaining / 3600).toString()
+            shiftMinsStr = ((state.shiftSecondsRemaining % 3600) / 60).toString()
+
+            breakHrsStr = (state.breakSecondsRemaining / 3600).toString()
+            breakMinsStr = ((state.breakSecondsRemaining % 3600) / 60).toString()
+
+            cycleHrsStr = (state.cycleSecondsRemaining / 3600).toString()
+            cycleMinsStr = ((state.cycleSecondsRemaining % 3600) / 60).toString()
+        }
+    }
 
     var isNavigating by remember { mutableStateOf(false) }
     var activeStepIndex by remember { mutableIntStateOf(0) }
@@ -2758,17 +2775,19 @@ fun TruckLvrMapScreen(
                         ) {
                             OutlinedButton(
                                 onClick = {
-                                    val totalMins = (editDriveHrs * 60 + editDriveMins - 15).coerceAtLeast(0)
-                                    editDriveHrs = totalMins / 60
-                                    editDriveMins = totalMins % 60
+                                    val h = driveHrsStr.toIntOrNull() ?: 0
+                                    val m = driveMinsStr.toIntOrNull() ?: 0
+                                    val totalMins = (h * 60 + m - 15).coerceAtLeast(0)
+                                    driveHrsStr = (totalMins / 60).toString()
+                                    driveMinsStr = (totalMins % 60).toString()
                                 },
                                 contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp),
                                 modifier = Modifier.height(36.dp)
                             ) { Text("-15m", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold) }
 
                             OutlinedTextField(
-                                value = if (editDriveHrs >= 0) editDriveHrs.toString() else "0",
-                                onValueChange = { editDriveHrs = (it.toIntOrNull() ?: 0).coerceIn(0, 11) },
+                                value = driveHrsStr,
+                                onValueChange = { driveHrsStr = it },
                                 singleLine = true,
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                 label = { Text("Hrs") },
@@ -2778,8 +2797,8 @@ fun TruckLvrMapScreen(
                             Text(":", fontWeight = FontWeight.Bold)
 
                             OutlinedTextField(
-                                value = if (editDriveMins >= 0) editDriveMins.toString() else "0",
-                                onValueChange = { editDriveMins = (it.toIntOrNull() ?: 0).coerceIn(0, 59) },
+                                value = driveMinsStr,
+                                onValueChange = { driveMinsStr = it },
                                 singleLine = true,
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                 label = { Text("Mins") },
@@ -2788,9 +2807,11 @@ fun TruckLvrMapScreen(
 
                             OutlinedButton(
                                 onClick = {
-                                    val totalMins = (editDriveHrs * 60 + editDriveMins + 15).coerceAtMost(11 * 60)
-                                    editDriveHrs = totalMins / 60
-                                    editDriveMins = totalMins % 60
+                                    val h = driveHrsStr.toIntOrNull() ?: 0
+                                    val m = driveMinsStr.toIntOrNull() ?: 0
+                                    val totalMins = (h * 60 + m + 15).coerceAtMost(11 * 60)
+                                    driveHrsStr = (totalMins / 60).toString()
+                                    driveMinsStr = (totalMins % 60).toString()
                                 },
                                 contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp),
                                 modifier = Modifier.height(36.dp)
@@ -2807,17 +2828,19 @@ fun TruckLvrMapScreen(
                         ) {
                             OutlinedButton(
                                 onClick = {
-                                    val totalMins = (editShiftHrs * 60 + editShiftMins - 15).coerceAtLeast(0)
-                                    editShiftHrs = totalMins / 60
-                                    editShiftMins = totalMins % 60
+                                    val h = shiftHrsStr.toIntOrNull() ?: 0
+                                    val m = shiftMinsStr.toIntOrNull() ?: 0
+                                    val totalMins = (h * 60 + m - 15).coerceAtLeast(0)
+                                    shiftHrsStr = (totalMins / 60).toString()
+                                    shiftMinsStr = (totalMins % 60).toString()
                                 },
                                 contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp),
                                 modifier = Modifier.height(36.dp)
                             ) { Text("-15m", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold) }
 
                             OutlinedTextField(
-                                value = if (editShiftHrs >= 0) editShiftHrs.toString() else "0",
-                                onValueChange = { editShiftHrs = (it.toIntOrNull() ?: 0).coerceIn(0, 14) },
+                                value = shiftHrsStr,
+                                onValueChange = { shiftHrsStr = it },
                                 singleLine = true,
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                 label = { Text("Hrs") },
@@ -2827,8 +2850,8 @@ fun TruckLvrMapScreen(
                             Text(":", fontWeight = FontWeight.Bold)
 
                             OutlinedTextField(
-                                value = if (editShiftMins >= 0) editShiftMins.toString() else "0",
-                                onValueChange = { editShiftMins = (it.toIntOrNull() ?: 0).coerceIn(0, 59) },
+                                value = shiftMinsStr,
+                                onValueChange = { shiftMinsStr = it },
                                 singleLine = true,
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                 label = { Text("Mins") },
@@ -2837,9 +2860,11 @@ fun TruckLvrMapScreen(
 
                             OutlinedButton(
                                 onClick = {
-                                    val totalMins = (editShiftHrs * 60 + editShiftMins + 15).coerceAtMost(14 * 60)
-                                    editShiftHrs = totalMins / 60
-                                    editShiftMins = totalMins % 60
+                                    val h = shiftHrsStr.toIntOrNull() ?: 0
+                                    val m = shiftMinsStr.toIntOrNull() ?: 0
+                                    val totalMins = (h * 60 + m + 15).coerceAtMost(14 * 60)
+                                    shiftHrsStr = (totalMins / 60).toString()
+                                    shiftMinsStr = (totalMins % 60).toString()
                                 },
                                 contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp),
                                 modifier = Modifier.height(36.dp)
@@ -2856,17 +2881,19 @@ fun TruckLvrMapScreen(
                         ) {
                             OutlinedButton(
                                 onClick = {
-                                    val totalMins = (editBreakHrs * 60 + editBreakMins - 15).coerceAtLeast(0)
-                                    editBreakHrs = totalMins / 60
-                                    editBreakMins = totalMins % 60
+                                    val h = breakHrsStr.toIntOrNull() ?: 0
+                                    val m = breakMinsStr.toIntOrNull() ?: 0
+                                    val totalMins = (h * 60 + m - 15).coerceAtLeast(0)
+                                    breakHrsStr = (totalMins / 60).toString()
+                                    breakMinsStr = (totalMins % 60).toString()
                                 },
                                 contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp),
                                 modifier = Modifier.height(36.dp)
                             ) { Text("-15m", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold) }
 
                             OutlinedTextField(
-                                value = if (editBreakHrs >= 0) editBreakHrs.toString() else "0",
-                                onValueChange = { editBreakHrs = (it.toIntOrNull() ?: 0).coerceIn(0, 8) },
+                                value = breakHrsStr,
+                                onValueChange = { breakHrsStr = it },
                                 singleLine = true,
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                 label = { Text("Hrs") },
@@ -2876,8 +2903,8 @@ fun TruckLvrMapScreen(
                             Text(":", fontWeight = FontWeight.Bold)
 
                             OutlinedTextField(
-                                value = if (editBreakMins >= 0) editBreakMins.toString() else "0",
-                                onValueChange = { editBreakMins = (it.toIntOrNull() ?: 0).coerceIn(0, 59) },
+                                value = breakMinsStr,
+                                onValueChange = { breakMinsStr = it },
                                 singleLine = true,
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                 label = { Text("Mins") },
@@ -2886,9 +2913,11 @@ fun TruckLvrMapScreen(
 
                             OutlinedButton(
                                 onClick = {
-                                    val totalMins = (editBreakHrs * 60 + editBreakMins + 15).coerceAtMost(8 * 60)
-                                    editBreakHrs = totalMins / 60
-                                    editBreakMins = totalMins % 60
+                                    val h = breakHrsStr.toIntOrNull() ?: 0
+                                    val m = breakMinsStr.toIntOrNull() ?: 0
+                                    val totalMins = (h * 60 + m + 15).coerceAtMost(8 * 60)
+                                    breakHrsStr = (totalMins / 60).toString()
+                                    breakMinsStr = (totalMins % 60).toString()
                                 },
                                 contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp),
                                 modifier = Modifier.height(36.dp)
@@ -2905,17 +2934,19 @@ fun TruckLvrMapScreen(
                         ) {
                             OutlinedButton(
                                 onClick = {
-                                    val totalMins = (editCycleHrs * 60 + editCycleMins - 15).coerceAtLeast(0)
-                                    editCycleHrs = totalMins / 60
-                                    editCycleMins = totalMins % 60
+                                    val h = cycleHrsStr.toIntOrNull() ?: 0
+                                    val m = cycleMinsStr.toIntOrNull() ?: 0
+                                    val totalMins = (h * 60 + m - 15).coerceAtLeast(0)
+                                    cycleHrsStr = (totalMins / 60).toString()
+                                    cycleMinsStr = (totalMins % 60).toString()
                                 },
                                 contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp),
                                 modifier = Modifier.height(36.dp)
                             ) { Text("-15m", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold) }
 
                             OutlinedTextField(
-                                value = if (editCycleHrs >= 0) editCycleHrs.toString() else "0",
-                                onValueChange = { editCycleHrs = (it.toIntOrNull() ?: 0).coerceIn(0, 70) },
+                                value = cycleHrsStr,
+                                onValueChange = { cycleHrsStr = it },
                                 singleLine = true,
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                 label = { Text("Hrs") },
@@ -2925,8 +2956,8 @@ fun TruckLvrMapScreen(
                             Text(":", fontWeight = FontWeight.Bold)
 
                             OutlinedTextField(
-                                value = if (editCycleMins >= 0) editCycleMins.toString() else "0",
-                                onValueChange = { editCycleMins = (it.toIntOrNull() ?: 0).coerceIn(0, 59) },
+                                value = cycleMinsStr,
+                                onValueChange = { cycleMinsStr = it },
                                 singleLine = true,
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                 label = { Text("Mins") },
@@ -2935,9 +2966,11 @@ fun TruckLvrMapScreen(
 
                             OutlinedButton(
                                 onClick = {
-                                    val totalMins = (editCycleHrs * 60 + editCycleMins + 15).coerceAtMost(70 * 60)
-                                    editCycleHrs = totalMins / 60
-                                    editCycleMins = totalMins % 60
+                                    val h = cycleHrsStr.toIntOrNull() ?: 0
+                                    val m = cycleMinsStr.toIntOrNull() ?: 0
+                                    val totalMins = (h * 60 + m + 15).coerceAtMost(70 * 60)
+                                    cycleHrsStr = (totalMins / 60).toString()
+                                    cycleMinsStr = (totalMins % 60).toString()
                                 },
                                 contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp),
                                 modifier = Modifier.height(36.dp)
@@ -2947,10 +2980,10 @@ fun TruckLvrMapScreen(
 
                     TextButton(
                         onClick = {
-                            editDriveHrs = 11; editDriveMins = 0
-                            editShiftHrs = 14; editShiftMins = 0
-                            editBreakHrs = 8; editBreakMins = 0
-                            editCycleHrs = 70; editCycleMins = 0
+                            driveHrsStr = "11"; driveMinsStr = "0"
+                            shiftHrsStr = "14"; shiftMinsStr = "0"
+                            breakHrsStr = "8"; breakMinsStr = "0"
+                            cycleHrsStr = "70"; cycleMinsStr = "0"
                         },
                         modifier = Modifier.fillMaxWidth()
                     ) {
@@ -2961,16 +2994,28 @@ fun TruckLvrMapScreen(
             confirmButton = {
                 Button(
                     onClick = {
+                        val dH = (driveHrsStr.toIntOrNull() ?: 0).coerceIn(0, 11)
+                        val dM = (driveMinsStr.toIntOrNull() ?: 0).coerceIn(0, 59)
+
+                        val sH = (shiftHrsStr.toIntOrNull() ?: 0).coerceIn(0, 14)
+                        val sM = (shiftMinsStr.toIntOrNull() ?: 0).coerceIn(0, 59)
+
+                        val bH = (breakHrsStr.toIntOrNull() ?: 0).coerceIn(0, 8)
+                        val bM = (breakMinsStr.toIntOrNull() ?: 0).coerceIn(0, 59)
+
+                        val cH = (cycleHrsStr.toIntOrNull() ?: 0).coerceIn(0, 70)
+                        val cM = (cycleMinsStr.toIntOrNull() ?: 0).coerceIn(0, 59)
+
                         val updated = TruckHosManager.updateCustomClocksExact(
                             context = context,
-                            driveHours = editDriveHrs,
-                            driveMins = editDriveMins,
-                            shiftHours = editShiftHrs,
-                            shiftMins = editShiftMins,
-                            breakHours = editBreakHrs,
-                            breakMins = editBreakMins,
-                            cycleHours = editCycleHrs,
-                            cycleMins = editCycleMins
+                            driveHours = dH,
+                            driveMins = dM,
+                            shiftHours = sH,
+                            shiftMins = sM,
+                            breakHours = bH,
+                            breakMins = bM,
+                            cycleHours = cH,
+                            cycleMins = cM
                         )
                         driverHosState = updated
 
