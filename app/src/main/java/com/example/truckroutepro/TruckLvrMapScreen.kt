@@ -2775,7 +2775,8 @@ fun TruckLvrMapScreen(
                         Text("11h Drive Clock Remaining:", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            modifier = Modifier.fillMaxWidth()
                         ) {
                             OutlinedButton(
                                 onClick = {
@@ -2785,8 +2786,8 @@ fun TruckLvrMapScreen(
                                     driveHrsStr = (totalMins / 60).toString()
                                     driveMinsStr = (totalMins % 60).toString()
                                 },
-                                contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp),
-                                modifier = Modifier.height(36.dp)
+                                contentPadding = PaddingValues(horizontal = 4.dp),
+                                modifier = Modifier.height(42.dp)
                             ) { Text("-15m", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold) }
 
                             OutlinedTextField(
@@ -2794,20 +2795,22 @@ fun TruckLvrMapScreen(
                                 onValueChange = { driveHrsStr = it },
                                 singleLine = true,
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                label = { Text("Hrs") },
-                                modifier = Modifier.weight(1f).height(54.dp)
+                                textStyle = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center),
+                                modifier = Modifier.weight(1f)
                             )
 
-                            Text(":", fontWeight = FontWeight.Bold)
+                            Text("h", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
 
                             OutlinedTextField(
                                 value = driveMinsStr,
                                 onValueChange = { driveMinsStr = it },
                                 singleLine = true,
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                label = { Text("Mins") },
-                                modifier = Modifier.weight(1f).height(54.dp)
+                                textStyle = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center),
+                                modifier = Modifier.weight(1f)
                             )
+
+                            Text("m", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
 
                             OutlinedButton(
                                 onClick = {
@@ -2817,8 +2820,8 @@ fun TruckLvrMapScreen(
                                     driveHrsStr = (totalMins / 60).toString()
                                     driveMinsStr = (totalMins % 60).toString()
                                 },
-                                contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp),
-                                modifier = Modifier.height(36.dp)
+                                contentPadding = PaddingValues(horizontal = 4.dp),
+                                modifier = Modifier.height(42.dp)
                             ) { Text("+15m", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold) }
                         }
                     }
@@ -2828,7 +2831,8 @@ fun TruckLvrMapScreen(
                         Text("14h Shift Clock Remaining:", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            modifier = Modifier.fillMaxWidth()
                         ) {
                             OutlinedButton(
                                 onClick = {
@@ -2838,8 +2842,8 @@ fun TruckLvrMapScreen(
                                     shiftHrsStr = (totalMins / 60).toString()
                                     shiftMinsStr = (totalMins % 60).toString()
                                 },
-                                contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp),
-                                modifier = Modifier.height(36.dp)
+                                contentPadding = PaddingValues(horizontal = 4.dp),
+                                modifier = Modifier.height(42.dp)
                             ) { Text("-15m", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold) }
 
                             OutlinedTextField(
@@ -2847,20 +2851,22 @@ fun TruckLvrMapScreen(
                                 onValueChange = { shiftHrsStr = it },
                                 singleLine = true,
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                label = { Text("Hrs") },
-                                modifier = Modifier.weight(1f).height(54.dp)
+                                textStyle = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center),
+                                modifier = Modifier.weight(1f)
                             )
 
-                            Text(":", fontWeight = FontWeight.Bold)
+                            Text("h", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
 
                             OutlinedTextField(
                                 value = shiftMinsStr,
                                 onValueChange = { shiftMinsStr = it },
                                 singleLine = true,
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                label = { Text("Mins") },
-                                modifier = Modifier.weight(1f).height(54.dp)
+                                textStyle = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center),
+                                modifier = Modifier.weight(1f)
                             )
+
+                            Text("m", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
 
                             OutlinedButton(
                                 onClick = {
@@ -2870,8 +2876,8 @@ fun TruckLvrMapScreen(
                                     shiftHrsStr = (totalMins / 60).toString()
                                     shiftMinsStr = (totalMins % 60).toString()
                                 },
-                                contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp),
-                                modifier = Modifier.height(36.dp)
+                                contentPadding = PaddingValues(horizontal = 4.dp),
+                                modifier = Modifier.height(42.dp)
                             ) { Text("+15m", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold) }
                         }
                     }
@@ -2881,7 +2887,8 @@ fun TruckLvrMapScreen(
                         Text("Time Until 30m Rest Break:", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            modifier = Modifier.fillMaxWidth()
                         ) {
                             OutlinedButton(
                                 onClick = {
@@ -2891,8 +2898,8 @@ fun TruckLvrMapScreen(
                                     breakHrsStr = (totalMins / 60).toString()
                                     breakMinsStr = (totalMins % 60).toString()
                                 },
-                                contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp),
-                                modifier = Modifier.height(36.dp)
+                                contentPadding = PaddingValues(horizontal = 4.dp),
+                                modifier = Modifier.height(42.dp)
                             ) { Text("-15m", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold) }
 
                             OutlinedTextField(
@@ -2900,20 +2907,22 @@ fun TruckLvrMapScreen(
                                 onValueChange = { breakHrsStr = it },
                                 singleLine = true,
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                label = { Text("Hrs") },
-                                modifier = Modifier.weight(1f).height(54.dp)
+                                textStyle = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center),
+                                modifier = Modifier.weight(1f)
                             )
 
-                            Text(":", fontWeight = FontWeight.Bold)
+                            Text("h", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
 
                             OutlinedTextField(
                                 value = breakMinsStr,
                                 onValueChange = { breakMinsStr = it },
                                 singleLine = true,
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                label = { Text("Mins") },
-                                modifier = Modifier.weight(1f).height(54.dp)
+                                textStyle = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center),
+                                modifier = Modifier.weight(1f)
                             )
+
+                            Text("m", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
 
                             OutlinedButton(
                                 onClick = {
@@ -2923,8 +2932,8 @@ fun TruckLvrMapScreen(
                                     breakHrsStr = (totalMins / 60).toString()
                                     breakMinsStr = (totalMins % 60).toString()
                                 },
-                                contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp),
-                                modifier = Modifier.height(36.dp)
+                                contentPadding = PaddingValues(horizontal = 4.dp),
+                                modifier = Modifier.height(42.dp)
                             ) { Text("+15m", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold) }
                         }
                     }
@@ -2934,7 +2943,8 @@ fun TruckLvrMapScreen(
                         Text("70h 8-Day Cycle Clock Remaining:", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            modifier = Modifier.fillMaxWidth()
                         ) {
                             OutlinedButton(
                                 onClick = {
@@ -2944,8 +2954,8 @@ fun TruckLvrMapScreen(
                                     cycleHrsStr = (totalMins / 60).toString()
                                     cycleMinsStr = (totalMins % 60).toString()
                                 },
-                                contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp),
-                                modifier = Modifier.height(36.dp)
+                                contentPadding = PaddingValues(horizontal = 4.dp),
+                                modifier = Modifier.height(42.dp)
                             ) { Text("-15m", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold) }
 
                             OutlinedTextField(
@@ -2953,20 +2963,22 @@ fun TruckLvrMapScreen(
                                 onValueChange = { cycleHrsStr = it },
                                 singleLine = true,
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                label = { Text("Hrs") },
-                                modifier = Modifier.weight(1f).height(54.dp)
+                                textStyle = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center),
+                                modifier = Modifier.weight(1f)
                             )
 
-                            Text(":", fontWeight = FontWeight.Bold)
+                            Text("h", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
 
                             OutlinedTextField(
                                 value = cycleMinsStr,
                                 onValueChange = { cycleMinsStr = it },
                                 singleLine = true,
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                label = { Text("Mins") },
-                                modifier = Modifier.weight(1f).height(54.dp)
+                                textStyle = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center),
+                                modifier = Modifier.weight(1f)
                             )
+
+                            Text("m", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
 
                             OutlinedButton(
                                 onClick = {
@@ -2976,8 +2988,8 @@ fun TruckLvrMapScreen(
                                     cycleHrsStr = (totalMins / 60).toString()
                                     cycleMinsStr = (totalMins % 60).toString()
                                 },
-                                contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp),
-                                modifier = Modifier.height(36.dp)
+                                contentPadding = PaddingValues(horizontal = 4.dp),
+                                modifier = Modifier.height(42.dp)
                             ) { Text("+15m", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold) }
                         }
                     }
