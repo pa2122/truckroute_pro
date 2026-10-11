@@ -122,6 +122,23 @@ object TruckHosManager {
         return full
     }
 
+    fun updateCustomClocks(
+        context: Context,
+        driveHours: Float,
+        shiftHours: Float,
+        breakHours: Float
+    ): HosDriverState {
+        val currentState = getDriverState(context)
+        val updated = currentState.copy(
+            driveSecondsRemaining = (driveHours * 3600).toLong().coerceIn(0L, 11 * 3600L),
+            shiftSecondsRemaining = (shiftHours * 3600).toLong().coerceIn(0L, 14 * 3600L),
+            breakSecondsRemaining = (breakHours * 3600).toLong().coerceIn(0L, 8 * 3600L),
+            lastStatusChangeMs = System.currentTimeMillis()
+        )
+        saveDriverState(context, updated)
+        return updated
+    }
+
     private fun saveDriverState(context: Context, state: HosDriverState) {
         val prefs = getPrefs(context)
         val obj = JSONObject().apply {

@@ -53,6 +53,7 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -61,13 +62,13 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -270,6 +271,10 @@ fun TruckLvrMapScreen(
     var activeRouteHazards by remember { mutableStateOf<List<BridgeHazardItem>>(emptyList()) }
     var driverHosState by remember { mutableStateOf(TruckHosManager.getDriverState(context)) }
     var activeHosRequirement by remember { mutableStateOf<HosRouteRequirement?>(null) }
+    var showHosTripStartDialog by remember { mutableStateOf(false) }
+    var editDriveHours by remember(driverHosState) { mutableFloatStateOf(driverHosState.driveSecondsRemaining / 3600f) }
+    var editShiftHours by remember(driverHosState) { mutableFloatStateOf(driverHosState.shiftSecondsRemaining / 3600f) }
+    var editBreakHours by remember(driverHosState) { mutableFloatStateOf(driverHosState.breakSecondsRemaining / 3600f) }
     var isNavigating by remember { mutableStateOf(false) }
     var activeStepIndex by remember { mutableIntStateOf(0) }
     val voiceGuidance = remember { TruckVoiceGuidance(context) }
@@ -2237,34 +2242,18 @@ fun TruckLvrMapScreen(
                         ) {
                             Button(
                                 onClick = {
-                                    isNavigating = !isNavigating
-                                    if (isNavigating) {
-                                        val startPos = res.polylinePoints.firstOrNull() ?: userCurrentLocation
-                                        val nextPos = res.polylinePoints.getOrNull(1) ?: res.polylinePoints.lastOrNull()
-                                        if (startPos != null) {
-                                            val initialBearing = if (nextPos != null) calculateBearing(startPos, nextPos) else 0f
-                                            scope.launch {
-                                                cameraPositionState.animate(
-                                                    CameraUpdateFactory.newCameraPosition(
-                                                        CameraPosition.Builder()
-                                                            .target(startPos)
-                                                            .zoom(17.5f)
-                                                            .tilt(55f)
-                                                            .bearing(initialBearing)
-                                                            .build()
-                                                    )
-                                                )
-                                            }
-                                        }
+                                    if (!isNavigating) {
+                                        showHosTripStartDialog = true
                                     } else {
+                                        isNavigating = false
                                         fitRouteInCamera(res.polylinePoints)
                                     }
                                 },
                                 shape = RoundedCornerShape(22.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                                colors = ButtonDefaults.buttonColors(containerColor = if (isNavigating) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary),
                                 modifier = Modifier.weight(1f)
                             ) {
-                                Text(if (isNavigating) "Overview" else "Start Trip", fontWeight = FontWeight.Bold)
+                                Text(if (isNavigating) "Exit Guidance" else "Start Trip", fontWeight = FontWeight.Bold)
                             }
                         }
                     }
@@ -2919,6 +2908,123 @@ fun TruckLvrMapScreen(
             onDismiss = {
                 showAddressDialog = false
                 isEditingOriginFromMap = false
+            }
+        )
+    }
+
+    if (showHosTripStartDialog) {
+        AlertDialog(
+            onDismissRequest = { showHosTripStartDialog = false },
+            title = {
+                Text("Verify Hours-of-Service Clocks", fontWeight = FontWeight.ExtraBold)
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(
+                        "Adjust your current logbook hours so route 30-minute breaks and 10-hour sleeper resets calculate accurately.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.secondary
+                    )
+
+                    // Drive Clock
+                    Column {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("11h Drive Clock:", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                            Text("${String.format(Locale.US, "%.1f", editDriveHours)}h remaining", fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary)
+                        }
+                        Slider(
+                            value = editDriveHours,
+                            onValueChange = { editDriveHours = it },
+                            valueRange = 0f..11f,
+                            steps = 21
+                        )
+                    }
+
+                    // Shift Clock
+                    Column {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("14h Shift Clock:", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                            Text("${String.format(Locale.US, "%.1f", editShiftHours)}h remaining", fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary)
+                        }
+                        Slider(
+                            value = editShiftHours,
+                            onValueChange = { editShiftHours = it },
+                            valueRange = 0f..14f,
+                            steps = 27
+                        )
+                    }
+
+                    // Break Clock
+                    Column {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("Time Until 30m Break:", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                            Text("${String.format(Locale.US, "%.1f", editBreakHours)}h remaining", fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary)
+                        }
+                        Slider(
+                            value = editBreakHours,
+                            onValueChange = { editBreakHours = it },
+                            valueRange = 0f..8f,
+                            steps = 15
+                        )
+                    }
+
+                    TextButton(
+                        onClick = {
+                            editDriveHours = 11f
+                            editShiftHours = 14f
+                            editBreakHours = 8f
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("⚡ Reset to Full Shift Clocks (11h / 14h / 8h)")
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val updated = TruckHosManager.updateCustomClocks(context, editDriveHours, editShiftHours, editBreakHours)
+                        driverHosState = updated
+
+                        val res = routeResult
+                        if (res != null) {
+                            val hosReq = TruckHosManager.evaluateRouteHosRequirements(
+                                routeMins = res.durationMins,
+                                totalMiles = res.distanceMiles,
+                                driverState = updated
+                            )
+                            activeHosRequirement = hosReq
+                        }
+
+                        showHosTripStartDialog = false
+                        isNavigating = true
+
+                        val startPos = res?.polylinePoints?.firstOrNull() ?: userCurrentLocation
+                        val nextPos = res?.polylinePoints?.getOrNull(1) ?: res?.polylinePoints?.lastOrNull()
+                        if (startPos != null) {
+                            val initialBearing = if (nextPos != null) calculateBearing(startPos, nextPos) else 0f
+                            scope.launch {
+                                cameraPositionState.animate(
+                                    CameraUpdateFactory.newCameraPosition(
+                                        CameraPosition.Builder()
+                                            .target(startPos)
+                                            .zoom(17.5f)
+                                            .tilt(55f)
+                                            .bearing(initialBearing)
+                                            .build()
+                                    )
+                                )
+                            }
+                        }
+                    }
+                ) {
+                    Text("Confirm & Start Guidance", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = { showHosTripStartDialog = false }) {
+                    Text("Cancel")
+                }
             }
         )
     }
