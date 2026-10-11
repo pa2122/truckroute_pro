@@ -782,15 +782,32 @@ fun TruckLvrMapScreen(
                 }
             }
 
-            // Truck Stops & Travel Centers Pins (Along Route or 20-mile Nearby when No Route)
+            // Truck Stops & Travel Centers Pins (20-Mile Rolling Window Ahead & Max 4.0 Miles Off-Route)
+            val polyIndex = remember(routePolyline) { PolylineDistanceIndex(routePolyline) }
             val activeTruckStops = if (routeResult != null) {
                 val rawList = if (specificSearchResults.isNotEmpty()) specificSearchResults else routeTruckStops
                 val waypointLocs = currentRes?.waypoints ?: emptyList()
                 val destLoc = destinationLatLng
+
+                val currentRefLoc = userCurrentLocation ?: routePolyline.firstOrNull() ?: cameraPositionState.position.target
+                val refPair = polyIndex.calculateStopMileMarkerAndCorridor(currentRefLoc, 50.0)
+                val currentRefMile = refPair?.first ?: 0.0
+
                 rawList.filter { stop ->
                     val isWaypoint = waypointLocs.any { wp -> computeDistanceMeters(wp, stop.location) < 150f }
                     val isDest = destLoc != null && computeDistanceMeters(destLoc, stop.location) < 150f
-                    !isWaypoint && !isDest
+                    if (isWaypoint || isDest) return@filter false
+
+                    if (specificSearchResults.isNotEmpty()) return@filter true
+
+                    // 1. Must be within 1 to 4 miles max off the route polyline
+                    val corridorInfo = polyIndex.calculateStopMileMarkerAndCorridor(stop.location, 4.0)
+                        ?: return@filter false
+
+                    // 2. Must be within 20 miles ahead along route from current reference position
+                    val isWithin20MilesAhead = stop.mileMarker >= (currentRefMile - 2.0) && stop.mileMarker <= (currentRefMile + 20.0)
+
+                    isWithin20MilesAhead
                 }
             } else {
                 nearbyCmvStops
