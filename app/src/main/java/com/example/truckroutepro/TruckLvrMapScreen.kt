@@ -45,6 +45,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
@@ -370,6 +371,7 @@ fun TruckLvrMapScreen(
     var searchJob by remember { mutableStateOf<Job?>(null) }
     var selectedMapType by remember { mutableStateOf(MapType.NORMAL) }
     var bottomHudHeightPx by remember { mutableIntStateOf(0) }
+    var isRouteCalculating by remember { mutableStateOf(false) }
 
     var nearbyCmvStops by remember { mutableStateOf<List<TruckStopOption>>(emptyList()) }
     var selectedCmvCategory by remember { mutableStateOf("ALL") }
@@ -608,28 +610,33 @@ fun TruckLvrMapScreen(
         destinationLatLng = destLatLng
         destinationAddressText = destText
 
+        isRouteCalculating = true
         scope.launch {
-            val result = TruckLvrRoutingService.computeTruckRoute(
-                apiKey = "AIzaSyAcscUaSZ1EGCuTGb81kgLD4ul92DXpn5E",
-                origin = startPoint,
-                destination = destLatLng,
-                originAddress = originText,
-                destinationAddress = destText,
-                waypoints = waypoints,
-                waypointAddresses = waypointAddresses,
-                profile = truckProfile
-            )
-            routeResult = result
-            routePolyline = result.polylinePoints
-            activeAlternativeRoutes = result.alternativeRoutes
-            fitRouteInCamera(result.polylinePoints)
+            try {
+                val result = TruckLvrRoutingService.computeTruckRoute(
+                    apiKey = "AIzaSyAcscUaSZ1EGCuTGb81kgLD4ul92DXpn5E",
+                    origin = startPoint,
+                    destination = destLatLng,
+                    originAddress = originText,
+                    destinationAddress = destText,
+                    waypoints = waypoints,
+                    waypointAddresses = waypointAddresses,
+                    profile = truckProfile
+                )
+                routeResult = result
+                routePolyline = result.polylinePoints
+                activeAlternativeRoutes = result.alternativeRoutes
+                fitRouteInCamera(result.polylinePoints)
 
-            val stops = searchAllTruckStopsAlongRoute(
-                apiKey = "AIzaSyAcscUaSZ1EGCuTGb81kgLD4ul92DXpn5E",
-                routePolyline = result.polylinePoints,
-                totalDistanceMiles = result.distanceMiles
-            )
-            routeTruckStops = stops
+                val stops = searchAllTruckStopsAlongRoute(
+                    apiKey = "AIzaSyAcscUaSZ1EGCuTGb81kgLD4ul92DXpn5E",
+                    routePolyline = result.polylinePoints,
+                    totalDistanceMiles = result.distanceMiles
+                )
+                routeTruckStops = stops
+            } finally {
+                isRouteCalculating = false
+            }
         }
     }
 
@@ -685,17 +692,16 @@ fun TruckLvrMapScreen(
                 }
             }
 
-            val selStop = selectedStopLocation
-            if (selStop != null) {
-                Marker(
-                    state = remember(selStop) { MarkerState(position = selStop) },
-                    title = "Selected Stop Location"
-                )
-            }
-
             // Truck Stops & Travel Centers Pins (Along Route or 20-mile Nearby when No Route)
             val activeTruckStops = if (routeResult != null) {
-                if (specificSearchResults.isNotEmpty()) specificSearchResults else routeTruckStops
+                val rawList = if (specificSearchResults.isNotEmpty()) specificSearchResults else routeTruckStops
+                val waypointLocs = currentRes?.waypoints ?: emptyList()
+                val destLoc = destinationLatLng
+                rawList.filter { stop ->
+                    val isWaypoint = waypointLocs.any { wp -> computeDistanceMeters(wp, stop.location) < 150f }
+                    val isDest = destLoc != null && computeDistanceMeters(destLoc, stop.location) < 150f
+                    !isWaypoint && !isDest
+                }
             } else {
                 nearbyCmvStops
             }
@@ -2457,6 +2463,50 @@ fun TruckLvrMapScreen(
                         ) {
                             Text("Route Through Here", fontWeight = FontWeight.Bold)
                         }
+                    }
+                }
+            }
+        }
+
+        // Full-Screen Greyed-Out Route Calculation Loading Overlay
+        if (isRouteCalculating) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.55f))
+                    .clickable(enabled = false) {},
+                contentAlignment = Alignment.Center
+            ) {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    shape = RoundedCornerShape(20.dp),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 12.dp),
+                    modifier = Modifier
+                        .padding(24.dp)
+                        .fillMaxWidth(0.88f)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(52.dp),
+                            strokeWidth = 4.5.dp,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Text(
+                            text = "Calculating Route...",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = "Evaluating commercial bridge clearances, weight limits, and truck-safe parkways for ${truckProfile.profileName}.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.secondary,
+                            textAlign = TextAlign.Center
+                        )
                     }
                 }
             }
