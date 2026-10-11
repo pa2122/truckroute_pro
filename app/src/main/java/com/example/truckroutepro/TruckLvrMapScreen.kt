@@ -1422,11 +1422,11 @@ fun TruckLvrMapScreen(
                 }
             }
 
-            // 5. Route HOS Rest Break Banner with "Edit HOS Clocks" Action
+            // 5. Route HOS Rest Break / Sleeper Reset / 34h Restart Banner
             val hosReq = activeHosRequirement
-            if (hosReq != null && routeResult != null && (hosReq.requires30MinBreak || hosReq.requires10HourReset) && !isInlineSearching) {
+            if (hosReq != null && routeResult != null && (hosReq.requires30MinBreak || hosReq.requires10HourReset || hosReq.requires34HourRestart) && !isInlineSearching) {
                 Surface(
-                    color = Color(0xFF1565C0),
+                    color = if (hosReq.requires34HourRestart) Color(0xFFC62828) else Color(0xFF1565C0),
                     shape = RoundedCornerShape(12.dp),
                     shadowElevation = 6.dp,
                     modifier = Modifier.fillMaxWidth()
@@ -1441,10 +1441,10 @@ fun TruckLvrMapScreen(
                         ) {
                             Text("⏱️", style = MaterialTheme.typography.titleMedium)
                             Column(modifier = Modifier.weight(1f)) {
-                                val headerText = if (hosReq.requires10HourReset) {
-                                    "HOS 10H SLEEPER RESET REQUIRED (11H DRIVE LIMIT)"
-                                } else {
-                                    "HOS 30M REST BREAK REQUIRED (8H DRIVE LIMIT)"
+                                val headerText = when {
+                                    hosReq.requires34HourRestart -> "HOS 34H CYCLE RESTART REQUIRED (70H CYCLE EXPIRED)"
+                                    hosReq.requires10HourReset -> "HOS 10H SLEEPER RESET REQUIRED (11H DRIVE LIMIT)"
+                                    else -> "HOS 30M REST BREAK REQUIRED (8H DRIVE LIMIT)"
                                 }
                                 Text(
                                     text = headerText,
@@ -1452,10 +1452,10 @@ fun TruckLvrMapScreen(
                                     fontWeight = FontWeight.ExtraBold,
                                     color = Color.White
                                 )
-                                val locationDesc = if (hosReq.requires10HourReset) {
-                                    "Scheduled 10h Sleeper Berth Reset at ${hosReq.resetRecommendedLocation}."
-                                } else {
-                                    "Scheduled 30m Rest Break at ${hosReq.breakRecommendedLocation}."
+                                val locationDesc = when {
+                                    hosReq.requires34HourRestart -> "Scheduled 34h Cycle Restart at ${hosReq.restartRecommendedLocation}."
+                                    hosReq.requires10HourReset -> "Scheduled 10h Sleeper Berth Reset at ${hosReq.resetRecommendedLocation}."
+                                    else -> "Scheduled 30m Rest Break at ${hosReq.breakRecommendedLocation}."
                                 }
                                 Text(
                                     text = locationDesc,

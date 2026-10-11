@@ -195,7 +195,7 @@ object TruckHosManager {
 
         val needs30mBreak = routeSecs > remainingBreakSecs
         val needs10hReset = routeSecs > remainingDriveSecs
-        val needs34hRestart = routeSecs > remainingCycleSecs
+        val needs34hRestart = routeSecs > remainingCycleSecs || remainingCycleSecs < remainingDriveSecs || (remainingCycleSecs < (11 * 3600L) && remainingCycleSecs <= routeSecs)
 
         val avgSpeedMph = if (routeMins > 0) (totalMiles / (routeMins / 60.0)).coerceIn(30.0, 70.0) else 55.0
 
