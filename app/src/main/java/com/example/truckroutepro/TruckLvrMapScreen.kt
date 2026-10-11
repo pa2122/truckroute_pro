@@ -49,6 +49,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
@@ -275,6 +276,7 @@ fun TruckLvrMapScreen(
     var driverHosState by remember { mutableStateOf(TruckHosManager.getDriverState(context)) }
     var activeHosRequirement by remember { mutableStateOf<HosRouteRequirement?>(null) }
     var showHosTripStartDialog by remember { mutableStateOf(false) }
+    var isRouteInsightsExpanded by remember { mutableStateOf(false) }
 
     var driveHrsStr by remember { mutableStateOf("11") }
     var driveMinsStr by remember { mutableStateOf("0") }
@@ -1292,208 +1294,172 @@ fun TruckLvrMapScreen(
                 }
             }
 
-            // 2. Secondary Info Cards Row (Truck Specs Left + Weather Badge Right)
+            // 2. Compact Secondary Info Cards Row (Truck Specs Left + Weather Badge Right)
             if (!isInlineSearching) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.Top
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Truck Spec Card (Left)
-                    Card(
+                    // Compact Truck Spec Badge (Left)
+                    Surface(
                         onClick = onOpenDrawer,
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f)),
-                        shape = RoundedCornerShape(12.dp),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
+                        shape = RoundedCornerShape(10.dp),
+                        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
+                        shadowElevation = 4.dp
                     ) {
-                        Column(
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
-                            verticalArrangement = Arrangement.spacedBy(1.dp)
+                        Row(
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
+                            Text("🚛", style = MaterialTheme.typography.labelSmall)
+                            val weightFormatted = if (truckProfile.weightLbs >= 1000) "${(truckProfile.weightLbs / 1000.0).toInt()}k" else "${truckProfile.weightLbs.toInt()}"
                             Text(
-                                text = truckProfile.profileName,
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.ExtraBold,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                            val weightFormatted = if (truckProfile.weightLbs >= 1000) "${(truckProfile.weightLbs / 1000.0).toInt()}k lbs" else "${truckProfile.weightLbs.toInt()} lbs"
-                            Text(
-                                text = "${truckProfile.formattedHeight} | ${weightFormatted} | ${truckProfile.maxSpeedMph} MPH",
+                                text = "${truckProfile.profileName} (${truckProfile.formattedHeight} | ${weightFormatted}lbs)",
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
+                                color = MaterialTheme.colorScheme.onSurface,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
-                            if (truckProfile.isHazmat) {
-                                Text(
-                                    text = "Hazmat Class 1-9",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color(0xFFD32F2F)
-                                )
-                            }
                         }
                     }
 
-                    // Weather Badge Card (Right)
+                    // Compact Weather Badge Card (Right)
                     val currentWeather = currentCityWeather
                     if (currentWeather != null) {
                         Surface(
-                            color = when {
-                                currentWeather.isSevereWindRolloverRisk -> Color(0xFFD32F2F)
-                                currentWeather.isHighWindWarning -> Color(0xFFF57C00)
-                                else -> MaterialTheme.colorScheme.surface.copy(alpha = 0.94f)
-                            },
-                            shape = RoundedCornerShape(12.dp),
-                            shadowElevation = 6.dp
+                            shape = RoundedCornerShape(10.dp),
+                            color = if (currentWeather.isHighWindWarning) Color(0xFFF57C00) else MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
+                            shadowElevation = 4.dp
                         ) {
                             Row(
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(4.dp)
                             ) {
+                                Text(if (currentWeather.windGustsMph >= 30) "💨" else "🌤️", style = MaterialTheme.typography.labelSmall)
                                 Text(
-                                    text = if (currentWeather.windGustsMph >= 30) "💨" else "🌤️",
-                                    style = MaterialTheme.typography.titleSmall
+                                    text = "${currentWeather.tempFahrenheit}°F | ${currentWeather.windGustsMph} MPH",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (currentWeather.isHighWindWarning) Color.White else MaterialTheme.colorScheme.onSurface,
+                                    maxLines = 1
                                 )
-                                Column {
-                                    Text(
-                                        text = "${currentWeather.tempFahrenheit}°F • ${currentWeather.weatherDescription}",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        fontWeight = FontWeight.Bold,
-                                        color = if (currentWeather.isHighWindWarning) Color.White else MaterialTheme.colorScheme.onSurface
-                                    )
-                                    Text(
-                                        text = "Wind: ${currentWeather.formattedWindText}",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        fontWeight = FontWeight.ExtraBold,
-                                        color = if (currentWeather.isHighWindWarning) Color.White else MaterialTheme.colorScheme.primary
-                                    )
-                                }
                             }
                         }
                     }
                 }
             }
 
-            // 3. Bridge Clearance Hazards
-            val primaryBridgeHazard = activeRouteHazards.firstOrNull()
-            if (primaryBridgeHazard != null && routeResult != null && !isInlineSearching) {
-                Surface(
-                    color = Color(0xFFD32F2F),
-                    shape = RoundedCornerShape(12.dp),
-                    shadowElevation = 6.dp,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier.padding(8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Text("🚨", style = MaterialTheme.typography.titleMedium)
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "${primaryBridgeHazard.title.uppercase()} (${String.format(Locale.US, "%.1f", primaryBridgeHazard.distanceMiles)} MI AHEAD)",
-                                style = MaterialTheme.typography.labelMedium,
-                                fontWeight = FontWeight.ExtraBold,
-                                color = Color.White
-                            )
-                            Text(
-                                text = primaryBridgeHazard.description,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = Color.White.copy(alpha = 0.95f)
-                            )
-                        }
-                    }
-                }
-            }
-
-            // 4. High-Wind Rollover Hazard Warning Banner
-            val currentWeather = currentCityWeather
-            if (currentWeather != null && currentWeather.windGustsMph >= 35 && !isInlineSearching) {
-                Surface(
-                    color = Color(0xFFD32F2F),
-                    shape = RoundedCornerShape(12.dp),
-                    shadowElevation = 6.dp,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier.padding(8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Text("⚠️", style = MaterialTheme.typography.titleMedium)
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "HIGH WIND ROLLOVER WARNING (${currentWeather.windGustsMph} MPH GUSTS)",
-                                style = MaterialTheme.typography.labelMedium,
-                                fontWeight = FontWeight.ExtraBold,
-                                color = Color.White
-                            )
-                            Text(
-                                text = "High-profile light / empty 53ft trailers exercise extreme caution or hold in safe truck parking.",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = Color.White.copy(alpha = 0.95f)
-                            )
-                        }
-                    }
-                }
-            }
-
-            // 5. Route HOS Status & Rest Break Banner
+            // 3. Compact Expandable Route Insights Pill (Weather, Bridge Hazards, HOS Status)
             val hosReq = activeHosRequirement
+            val currentWeather = currentCityWeather
+            val primaryBridgeHazard = activeRouteHazards.firstOrNull()
+            val isBreakRequired = hosReq != null && (hosReq.requires30MinBreak || hosReq.requires10HourReset || hosReq.requires34HourRestart)
+            val isHighWind = currentWeather != null && currentWeather.windGustsMph >= 35
+
             if (routeResult != null && !isInlineSearching) {
-                val isBreakRequired = hosReq != null && (hosReq.requires30MinBreak || hosReq.requires10HourReset || hosReq.requires34HourRestart)
                 Surface(
-                    color = if (hosReq?.requires34HourRestart == true) Color(0xFFC62828) else if (isBreakRequired) Color(0xFF1565C0) else MaterialTheme.colorScheme.surface.copy(alpha = 0.94f),
-                    shape = RoundedCornerShape(12.dp),
-                    shadowElevation = 6.dp,
-                    modifier = Modifier.fillMaxWidth()
+                    color = when {
+                        primaryBridgeHazard != null || isHighWind -> Color(0xFFC62828)
+                        isBreakRequired -> Color(0xFF1565C0)
+                        else -> MaterialTheme.colorScheme.surfaceVariant
+                    },
+                    shape = RoundedCornerShape(10.dp),
+                    shadowElevation = 4.dp,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { isRouteInsightsExpanded = !isRouteInsightsExpanded }
                 ) {
-                    Column(
-                        modifier = Modifier.padding(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    Row(
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            modifier = Modifier.weight(1f)
                         ) {
-                            Text("⏱️", style = MaterialTheme.typography.titleMedium)
-                            Column(modifier = Modifier.weight(1f)) {
-                                val headerText = when {
-                                    hosReq?.requires34HourRestart == true -> "HOS 34H CYCLE RESTART REQUIRED (70H CYCLE EXPIRED)"
-                                    hosReq?.requires10HourReset == true -> "HOS 10H SLEEPER RESET REQUIRED (11H DRIVE LIMIT)"
-                                    hosReq?.requires30MinBreak == true -> "HOS 30M REST BREAK REQUIRED (8H DRIVE LIMIT)"
-                                    else -> "HOS LOGBOOK CLOCKS: ${driverHosState.formattedDriveRemaining} Drive | ${driverHosState.formattedShiftRemaining} Shift"
-                                }
-                                Text(
-                                    text = headerText,
-                                    style = MaterialTheme.typography.labelMedium,
-                                    fontWeight = FontWeight.ExtraBold,
-                                    color = if (isBreakRequired) Color.White else MaterialTheme.colorScheme.onSurface
-                                )
-                                val locationDesc = when {
-                                    hosReq?.requires34HourRestart == true -> "Scheduled 34h Cycle Restart at ${hosReq.restartRecommendedLocation}."
-                                    hosReq?.requires10HourReset == true -> "Scheduled 10h Sleeper Berth Reset at ${hosReq.resetRecommendedLocation}."
-                                    hosReq?.requires30MinBreak == true -> "Scheduled 30m Rest Break at ${hosReq.breakRecommendedLocation}."
-                                    else -> "70h Cycle: ${driverHosState.formattedCycleRemaining} remaining. Route fits within current logbook clocks."
-                                }
-                                Text(
-                                    text = locationDesc,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = if (isBreakRequired) Color.White.copy(alpha = 0.95f) else MaterialTheme.colorScheme.secondary
-                                )
+                            val icon = when {
+                                primaryBridgeHazard != null -> "🚨"
+                                isHighWind -> "💨"
+                                isBreakRequired -> "⏱️"
+                                else -> "📋"
                             }
+                            Text(icon, style = MaterialTheme.typography.titleSmall)
+
+                            val summaryText = when {
+                                primaryBridgeHazard != null -> "${primaryBridgeHazard.title} (${String.format(Locale.US, "%.1f", primaryBridgeHazard.distanceMiles)} mi)"
+                                isHighWind -> "High Wind Warning (${currentWeather?.windGustsMph} MPH Gusts)"
+                                isBreakRequired && hosReq?.requires34HourRestart == true -> "HOS 34h Cycle Restart Required"
+                                isBreakRequired && hosReq?.requires10HourReset == true -> "HOS 10h Sleeper Reset Required"
+                                isBreakRequired -> "HOS 30m Rest Break Required"
+                                else -> "HOS: ${driverHosState.formattedDriveRemaining} Drive | ${driverHosState.formattedShiftRemaining} Shift"
+                            }
+
+                            Text(
+                                text = summaryText,
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = if (primaryBridgeHazard != null || isHighWind || isBreakRequired) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
                         }
 
-                        OutlinedButton(
-                            onClick = { showHosTripStartDialog = true },
-                            colors = ButtonDefaults.outlinedButtonColors(contentColor = if (isBreakRequired) Color.White else MaterialTheme.colorScheme.primary),
-                            border = BorderStroke(1.dp, if (isBreakRequired) Color.White else MaterialTheme.colorScheme.primary),
-                            shape = RoundedCornerShape(8.dp),
-                            modifier = Modifier.fillMaxWidth().height(28.dp),
-                            contentPadding = PaddingValues(0.dp)
+                        Text(
+                            text = if (isRouteInsightsExpanded) "▼ Close" else "▲ Details & Clocks",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = if (primaryBridgeHazard != null || isHighWind || isBreakRequired) Color.White else MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+
+                // Expanded Insights Sheet
+                if (isRouteInsightsExpanded) {
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        shape = RoundedCornerShape(12.dp),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(10.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Text("Edit HOS Clocks & Recalculate Rest Stops", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                            if (primaryBridgeHazard != null) {
+                                Text("🚨 ${primaryBridgeHazard.title.uppercase()}", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.ExtraBold, color = Color(0xFFD32F2F))
+                                Text(primaryBridgeHazard.description, style = MaterialTheme.typography.bodySmall)
+                                HorizontalDivider()
+                            }
+
+                            if (currentWeather != null) {
+                                Text("🌤️ Weather: ${currentWeather.tempFahrenheit}°F • ${currentWeather.weatherDescription} (Wind: ${currentWeather.formattedWindText})", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+                                HorizontalDivider()
+                            }
+
+                            Text("⏱️ HOS Logbook Clocks:", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text("Drive: ${driverHosState.formattedDriveRemaining}", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                                Text("Shift: ${driverHosState.formattedShiftRemaining}", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                                Text("Break: ${driverHosState.formattedBreakRemaining}", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                                Text("70h: ${driverHosState.formattedCycleRemaining}", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                            }
+
+                            OutlinedButton(
+                                onClick = { showHosTripStartDialog = true },
+                                modifier = Modifier.fillMaxWidth().height(32.dp),
+                                contentPadding = PaddingValues(0.dp)
+                            ) {
+                                Text("Edit HOS Clocks & Recalculate Rest Stops", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                            }
                         }
                     }
                 }
