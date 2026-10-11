@@ -1439,11 +1439,12 @@ fun TruckLvrMapScreen(
                 }
             }
 
-            // 5. Route HOS Rest Break / Sleeper Reset / 34h Restart Banner
+            // 5. Route HOS Status & Rest Break Banner
             val hosReq = activeHosRequirement
-            if (hosReq != null && routeResult != null && (hosReq.requires30MinBreak || hosReq.requires10HourReset || hosReq.requires34HourRestart) && !isInlineSearching) {
+            if (routeResult != null && !isInlineSearching) {
+                val isBreakRequired = hosReq != null && (hosReq.requires30MinBreak || hosReq.requires10HourReset || hosReq.requires34HourRestart)
                 Surface(
-                    color = if (hosReq.requires34HourRestart) Color(0xFFC62828) else Color(0xFF1565C0),
+                    color = if (hosReq?.requires34HourRestart == true) Color(0xFFC62828) else if (isBreakRequired) Color(0xFF1565C0) else MaterialTheme.colorScheme.surface.copy(alpha = 0.94f),
                     shape = RoundedCornerShape(12.dp),
                     shadowElevation = 6.dp,
                     modifier = Modifier.fillMaxWidth()
@@ -1459,33 +1460,35 @@ fun TruckLvrMapScreen(
                             Text("⏱️", style = MaterialTheme.typography.titleMedium)
                             Column(modifier = Modifier.weight(1f)) {
                                 val headerText = when {
-                                    hosReq.requires34HourRestart -> "HOS 34H CYCLE RESTART REQUIRED (70H CYCLE EXPIRED)"
-                                    hosReq.requires10HourReset -> "HOS 10H SLEEPER RESET REQUIRED (11H DRIVE LIMIT)"
-                                    else -> "HOS 30M REST BREAK REQUIRED (8H DRIVE LIMIT)"
+                                    hosReq?.requires34HourRestart == true -> "HOS 34H CYCLE RESTART REQUIRED (70H CYCLE EXPIRED)"
+                                    hosReq?.requires10HourReset == true -> "HOS 10H SLEEPER RESET REQUIRED (11H DRIVE LIMIT)"
+                                    hosReq?.requires30MinBreak == true -> "HOS 30M REST BREAK REQUIRED (8H DRIVE LIMIT)"
+                                    else -> "HOS LOGBOOK CLOCKS: ${driverHosState.formattedDriveRemaining} Drive | ${driverHosState.formattedShiftRemaining} Shift"
                                 }
                                 Text(
                                     text = headerText,
                                     style = MaterialTheme.typography.labelMedium,
                                     fontWeight = FontWeight.ExtraBold,
-                                    color = Color.White
+                                    color = if (isBreakRequired) Color.White else MaterialTheme.colorScheme.onSurface
                                 )
                                 val locationDesc = when {
-                                    hosReq.requires34HourRestart -> "Scheduled 34h Cycle Restart at ${hosReq.restartRecommendedLocation}."
-                                    hosReq.requires10HourReset -> "Scheduled 10h Sleeper Berth Reset at ${hosReq.resetRecommendedLocation}."
-                                    else -> "Scheduled 30m Rest Break at ${hosReq.breakRecommendedLocation}."
+                                    hosReq?.requires34HourRestart == true -> "Scheduled 34h Cycle Restart at ${hosReq.restartRecommendedLocation}."
+                                    hosReq?.requires10HourReset == true -> "Scheduled 10h Sleeper Berth Reset at ${hosReq.resetRecommendedLocation}."
+                                    hosReq?.requires30MinBreak == true -> "Scheduled 30m Rest Break at ${hosReq.breakRecommendedLocation}."
+                                    else -> "70h Cycle: ${driverHosState.formattedCycleRemaining} remaining. Route fits within current logbook clocks."
                                 }
                                 Text(
                                     text = locationDesc,
                                     style = MaterialTheme.typography.labelSmall,
-                                    color = Color.White.copy(alpha = 0.95f)
+                                    color = if (isBreakRequired) Color.White.copy(alpha = 0.95f) else MaterialTheme.colorScheme.secondary
                                 )
                             }
                         }
 
                         OutlinedButton(
                             onClick = { showHosTripStartDialog = true },
-                            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
-                            border = BorderStroke(1.dp, Color.White),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = if (isBreakRequired) Color.White else MaterialTheme.colorScheme.primary),
+                            border = BorderStroke(1.dp, if (isBreakRequired) Color.White else MaterialTheme.colorScheme.primary),
                             shape = RoundedCornerShape(8.dp),
                             modifier = Modifier.fillMaxWidth().height(28.dp),
                             contentPadding = PaddingValues(0.dp)
@@ -2097,6 +2100,24 @@ fun TruckLvrMapScreen(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
+                            OutlinedButton(
+                                onClick = {
+                                    routeResult = null
+                                    routePolyline = emptyList()
+                                    destinationLatLng = null
+                                    destinationAddressText = ""
+                                    activeRouteHazards = emptyList()
+                                    activeHosRequirement = null
+                                    isNavigating = false
+                                },
+                                shape = RoundedCornerShape(22.dp),
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                                border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.error),
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text("Cancel Route", fontWeight = FontWeight.Bold)
+                            }
+
                             Button(
                                 onClick = {
                                     if (!isNavigating) {
