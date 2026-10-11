@@ -44,6 +44,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.material.icons.Icons
@@ -384,11 +386,19 @@ fun TruckLvrMapScreen(
     var selectedStopOption by remember { mutableStateOf<TruckStopOption?>(null) }
     var showAddressDialog by remember { mutableStateOf(false) }
     var isInlineSearching by remember { mutableStateOf(false) }
+    val inlineFocusRequester = remember { FocusRequester() }
     var inlineSearchInput by remember { mutableStateOf("") }
     var inlinePredictions by remember { mutableStateOf<List<PlacePrediction>>(emptyList()) }
     var isInlineLoading by remember { mutableStateOf(false) }
     var inlineSearchJob by remember { mutableStateOf<Job?>(null) }
     var recentInlineSearches by remember { mutableStateOf(SearchHistoryManager.getRecentSearches(context)) }
+
+    LaunchedEffect(isInlineSearching) {
+        if (isInlineSearching) {
+            delay(100)
+            inlineFocusRequester.requestFocus()
+        }
+    }
     var isEditingOriginFromMap by remember { mutableStateOf(false) }
     var showTruckStopFinder by remember { mutableStateOf(false) }
     var isBottomHudExpanded by remember { mutableStateOf(false) }
@@ -1184,7 +1194,9 @@ fun TruckLvrMapScreen(
                                     },
                                     placeholder = { Text("Search address, place or truck stop...") },
                                     singleLine = true,
-                                    modifier = Modifier.weight(1f),
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .focusRequester(inlineFocusRequester),
                                     trailingIcon = {
                                         if (inlineSearchInput.isNotEmpty()) {
                                             IconButton(onClick = {
