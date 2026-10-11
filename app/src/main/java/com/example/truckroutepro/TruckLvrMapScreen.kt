@@ -932,341 +932,74 @@ fun TruckLvrMapScreen(
             }
         }
 
-        // Floating Truck Profile Info Overlay Card (Top-Left)
-        if (!isInlineSearching) {
-            Card(
-                onClick = onOpenDrawer,
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f)),
-                shape = RoundedCornerShape(14.dp),
-                elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
-                modifier = Modifier
-                    .align(Alignment.TopStart)
-                    .padding(top = 74.dp, start = 12.dp)
-            ) {
-                Column(
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(2.dp)
-                ) {
-                    Text(
-                        text = truckProfile.profileName,
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                    Text(
-                        text = truckProfile.formattedHeight,
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    val weightFormatted = if (truckProfile.weightLbs >= 1000) {
-                        "${String.format(Locale.US, "%.1f", truckProfile.weightLbs / 1000.0).replace(".0", "")}k lbs"
-                    } else {
-                        "${truckProfile.weightLbs.toInt()} lbs"
-                    }
-                    Text(
-                        text = weightFormatted,
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        text = "${truckProfile.maxSpeedMph} MPH Gov",
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    if (truckProfile.isHazmat) {
-                        Text(
-                            text = "Hazmat Class 1-9",
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFFD32F2F)
-                        )
-                    }
-                }
-            }
-        }
+        // Single Non-Overlapping Top Overlay Container (Search Bar -> Specs/Weather Row -> Warning Banners)
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 6.dp)
+                .align(Alignment.TopCenter),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            // 1. Navigation Turn-by-Turn Banner OR Places Search Bar
+            val activeNavRes = routeResult
+            if (isNavigating && activeNavRes != null && activeNavRes.navSteps.isNotEmpty()) {
+                val activeStep = activeNavRes.navSteps.getOrNull(activeStepIndex.coerceIn(0, activeNavRes.navSteps.size - 1))
+                val nextStep = activeNavRes.navSteps.getOrNull(activeStepIndex + 1)
 
-        // Floating Weather & High-Wind Badge Card (Top-Right)
-        val currentWeather = currentCityWeather
-        if (!isInlineSearching && currentWeather != null) {
-            Surface(
-                color = when {
-                    currentWeather.isSevereWindRolloverRisk -> Color(0xFFD32F2F)
-                    currentWeather.isHighWindWarning -> Color(0xFFF57C00)
-                    else -> MaterialTheme.colorScheme.surface.copy(alpha = 0.94f)
-                },
-                shape = RoundedCornerShape(14.dp),
-                shadowElevation = 6.dp,
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(top = 74.dp, end = 12.dp)
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                Surface(
+                    color = Color(0xFF137333),
+                    shape = RoundedCornerShape(18.dp),
+                    shadowElevation = 10.dp,
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text(
-                        text = if (currentWeather.windGustsMph >= 30) "💨" else "🌤️",
-                        style = MaterialTheme.typography.titleMedium
-                    )
-                    Column {
-                        Text(
-                            text = "${currentWeather.tempFahrenheit}°F • ${currentWeather.weatherDescription}",
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = if (currentWeather.isHighWindWarning) Color.White else MaterialTheme.colorScheme.onSurface
-                        )
-                        Text(
-                            text = "Wind: ${currentWeather.formattedWindText}",
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.ExtraBold,
-                            color = if (currentWeather.isHighWindWarning) Color.White else MaterialTheme.colorScheme.primary
-                        )
-                    }
-                }
-            }
-        }
-
-        // High-Wind Rollover Hazard Warning Banner
-        if (currentWeather != null && currentWeather.windGustsMph >= 35) {
-            Surface(
-                color = Color(0xFFD32F2F),
-                shape = RoundedCornerShape(14.dp),
-                shadowElevation = 8.dp,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 12.dp)
-                    .align(Alignment.TopCenter)
-                    .padding(top = 128.dp)
-            ) {
-                Row(
-                    modifier = Modifier.padding(10.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Text("⚠️", style = MaterialTheme.typography.titleMedium)
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "HIGH WIND ROLLOVER WARNING (${currentWeather.windGustsMph} MPH GUSTS)",
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.ExtraBold,
-                            color = Color.White
-                        )
-                        Text(
-                            text = "High-profile light / empty 53ft trailers exercise extreme caution or hold in safe truck parking.",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = Color.White.copy(alpha = 0.95f)
-                        )
-                    }
-                }
-            }
-        }
-
-        // Bridge Clearance & Weight Limit Warning HUD Banner
-        val primaryBridgeHazard = activeRouteHazards.firstOrNull()
-        if (primaryBridgeHazard != null && routeResult != null && !isInlineSearching) {
-            Surface(
-                color = Color(0xFFD32F2F),
-                shape = RoundedCornerShape(14.dp),
-                shadowElevation = 8.dp,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 12.dp)
-                    .align(Alignment.TopCenter)
-                    .padding(top = 128.dp)
-            ) {
-                Row(
-                    modifier = Modifier.padding(10.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Text("🚨", style = MaterialTheme.typography.titleMedium)
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "${primaryBridgeHazard.title.uppercase()} (${String.format(Locale.US, "%.1f", primaryBridgeHazard.distanceMiles)} MI AHEAD)",
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.ExtraBold,
-                            color = Color.White
-                        )
-                        Text(
-                            text = primaryBridgeHazard.description,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = Color.White.copy(alpha = 0.95f)
-                        )
-                    }
-                }
-            }
-        }
-
-        // Route HOS Rest Break / Sleeper Reset Requirement Banner
-        val hosReq = activeHosRequirement
-        if (hosReq != null && routeResult != null && (hosReq.requires30MinBreak || hosReq.requires10HourReset) && !isInlineSearching) {
-            Surface(
-                color = Color(0xFF1565C0),
-                shape = RoundedCornerShape(14.dp),
-                shadowElevation = 8.dp,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 12.dp)
-                    .align(Alignment.TopCenter)
-                    .padding(top = 130.dp)
-            ) {
-                Row(
-                    modifier = Modifier.padding(10.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Text("⏱️", style = MaterialTheme.typography.titleMedium)
-                    Column(modifier = Modifier.weight(1f)) {
-                        val headerText = if (hosReq.requires10HourReset) {
-                            "HOS 10H SLEEPER RESET REQUIRED (11H DRIVE CLOCK LIMIT)"
-                        } else {
-                            "HOS 30M REST BREAK REQUIRED (8H DRIVE LIMIT)"
-                        }
-                        Text(
-                            text = headerText,
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.ExtraBold,
-                            color = Color.White
-                        )
-                        val locationDesc = if (hosReq.requires10HourReset) {
-                            "Scheduled 10h Sleeper Berth Reset at ${hosReq.resetRecommendedLocation}."
-                        } else {
-                            "Scheduled 30m Rest Break at ${hosReq.breakRecommendedLocation}."
-                        }
-                        Text(
-                            text = locationDesc,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = Color.White.copy(alpha = 0.95f)
-                        )
-                    }
-                }
-            }
-        }
-
-        // FMCSA § 392.9 Flatbed Load Securement Checkpoint Warning Banner
-        if (showSecurementWarningBanner && truckProfile.isFlatbedOrOpenCargo) {
-            Surface(
-                color = Color(0xFFD32F2F),
-                shape = RoundedCornerShape(16.dp),
-                shadowElevation = 10.dp,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 12.dp)
-                    .align(Alignment.TopCenter)
-                    .padding(top = 130.dp)
-            ) {
-                Column(
-                    modifier = Modifier.padding(14.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    Column(
+                        modifier = Modifier.padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        Text("⚠️", style = MaterialTheme.typography.titleMedium)
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "MANDATORY LOAD SECUREMENT CHECK (FMCSA § 392.9)",
-                                style = MaterialTheme.typography.labelMedium,
-                                fontWeight = FontWeight.ExtraBold,
-                                color = Color.White
-                            )
-                            val checkLabel = if (securementCheckTargetMiles == 50) "First 50 Miles Traveled" else "150 Miles Traveled"
-                            Text(
-                                text = "$checkLabel. Inspect straps, chains, binders, tarps, and edge protectors at next safe stop.",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = Color.White.copy(alpha = 0.95f)
-                            )
-                        }
-                    }
-
-                    Button(
-                        onClick = {
-                            showSecurementWarningBanner = false
-                            lastSecurementCheckMiles = totalFlatbedMilesTraveled
-                            securementCheckTargetMiles = 150
-                            Toast.makeText(context, "Cargo securement check recorded! Counter reset for 150 miles.", Toast.LENGTH_LONG).show()
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color(0xFFD32F2F)),
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text("✔ Straps & Chains Inspected & Tight", fontWeight = FontWeight.ExtraBold)
-                    }
-                }
-            }
-        }
-
-        // Top Navigation Header: Green Floating Turn-by-Turn Banner (Google Navigation Style)
-        val activeNavRes = routeResult
-        if (isNavigating && activeNavRes != null && activeNavRes.navSteps.isNotEmpty()) {
-            val activeStep = activeNavRes.navSteps.getOrNull(activeStepIndex.coerceIn(0, activeNavRes.navSteps.size - 1))
-            val nextStep = activeNavRes.navSteps.getOrNull(activeStepIndex + 1)
-
-            Surface(
-                color = Color(0xFF137333), // Google Navigation Dark Green
-                shape = RoundedCornerShape(18.dp),
-                shadowElevation = 10.dp,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(12.dp)
-                    .align(Alignment.TopCenter)
-            ) {
-                Column(
-                    modifier = Modifier.padding(14.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Surface(
-                            shape = CircleShape,
-                            color = Color.White.copy(alpha = 0.22f),
-                            modifier = Modifier.size(52.dp)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
-                            Box(contentAlignment = Alignment.Center) {
+                            Surface(
+                                shape = CircleShape,
+                                color = Color.White.copy(alpha = 0.22f),
+                                modifier = Modifier.size(46.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Text(
+                                        when (activeStep?.maneuverIcon) {
+                                            "Right" -> "➔"
+                                            "Left" -> "⬅"
+                                            "U-Turn" -> "🔄"
+                                            "Keep Right" -> "↗"
+                                            "Keep Left" -> "↖"
+                                            else -> "⬆"
+                                        },
+                                        style = MaterialTheme.typography.titleLarge,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        color = Color.White
+                                    )
+                                }
+                            }
+
+                            Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    when (activeStep?.maneuverIcon) {
-                                        "Right" -> "➔"
-                                        "Left" -> "⬅"
-                                        "U-Turn" -> "🔄"
-                                        "Keep Right" -> "↗"
-                                        "Keep Left" -> "↖"
-                                        else -> "⬆"
-                                    },
-                                    style = MaterialTheme.typography.headlineMedium,
+                                    activeStep?.distanceText ?: "0 mi",
+                                    style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.ExtraBold,
                                     color = Color.White
                                 )
+                                Text(
+                                    activeStep?.instruction ?: "Proceed on route",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White,
+                                    maxLines = 2
+                                )
                             }
-                        }
 
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                activeStep?.distanceText ?: "0 mi",
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.ExtraBold,
-                                color = Color.White
-                            )
-                            Text(
-                                activeStep?.instruction ?: "Proceed on route",
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White,
-                                maxLines = 2
-                            )
-                        }
-
-                        // Action Controls: Voice Prompt Toggle & Step Navigation
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            TextButton(
+                            IconButton(
                                 onClick = {
                                     isVoiceMuted = !isVoiceMuted
                                     voiceGuidance.isMuted = isVoiceMuted
@@ -1274,109 +1007,29 @@ fun TruckLvrMapScreen(
                                         val activePrompt = activeStep?.let { "${it.distanceText}, ${it.instruction}" } ?: "Voice guidance enabled"
                                         voiceGuidance.speakInstruction(activePrompt, force = true)
                                     }
-                                },
-                                contentPadding = PaddingValues(horizontal = 4.dp)
+                                }
                             ) {
                                 Text(
                                     if (isVoiceMuted) "🔇" else "🔊",
                                     style = MaterialTheme.typography.titleLarge
                                 )
                             }
-
-                            if (activeStepIndex > 0) {
-                                IconButton(
-                                    onClick = {
-                                        activeStepIndex--
-                                        val prevStepObj = activeNavRes.navSteps.getOrNull(activeStepIndex)
-                                        if (prevStepObj != null) {
-                                            val nextStepObj = activeNavRes.navSteps.getOrNull(activeStepIndex + 1)
-                                            val bearing = nextStepObj?.let { calculateBearing(prevStepObj.startLatLng, it.startLatLng) } ?: 0f
-                                            scope.launch {
-                                                cameraPositionState.animate(
-                                                    CameraUpdateFactory.newCameraPosition(
-                                                        CameraPosition.Builder()
-                                                            .target(prevStepObj.startLatLng)
-                                                            .zoom(17.5f)
-                                                            .tilt(55f)
-                                                            .bearing(bearing)
-                                                            .build()
-                                                    )
-                                                )
-                                            }
-                                        }
-                                    }
-                                ) {
-                                    Text("‹", style = MaterialTheme.typography.headlineLarge, color = Color.White, fontWeight = FontWeight.Bold)
-                                }
-                            }
-
-                            if (activeStepIndex < activeNavRes.navSteps.size - 1) {
-                                IconButton(
-                                    onClick = {
-                                        activeStepIndex++
-                                        val nextStepObj = activeNavRes.navSteps.getOrNull(activeStepIndex)
-                                        if (nextStepObj != null) {
-                                            val futureStepObj = activeNavRes.navSteps.getOrNull(activeStepIndex + 1)
-                                            val bearing = futureStepObj?.let { calculateBearing(nextStepObj.startLatLng, it.startLatLng) } ?: 0f
-                                            scope.launch {
-                                                cameraPositionState.animate(
-                                                    CameraUpdateFactory.newCameraPosition(
-                                                        CameraPosition.Builder()
-                                                            .target(nextStepObj.startLatLng)
-                                                            .zoom(17.5f)
-                                                            .tilt(55f)
-                                                            .bearing(bearing)
-                                                            .build()
-                                                    )
-                                                )
-                                            }
-                                        }
-                                    }
-                                ) {
-                                    Text("›", style = MaterialTheme.typography.headlineLarge, color = Color.White, fontWeight = FontWeight.Bold)
-                                }
-                            }
                         }
-                    }
 
-                    if (nextStep != null) {
-                        HorizontalDivider(color = Color.White.copy(alpha = 0.35f))
-                        Text(
-                            "Then ${nextStep.distanceText}: ${nextStep.instruction}",
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White.copy(alpha = 0.95f),
-                            maxLines = 1
-                        )
-                    }
-
-                    if (activeNavRes.warningMessage.isNotBlank()) {
-                        HorizontalDivider(color = Color.White.copy(alpha = 0.35f))
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            Text("⚠️", style = MaterialTheme.typography.labelMedium)
+                        if (nextStep != null) {
+                            HorizontalDivider(color = Color.White.copy(alpha = 0.35f))
                             Text(
-                                text = activeNavRes.warningMessage,
-                                style = MaterialTheme.typography.labelSmall,
+                                "Then ${nextStep.distanceText}: ${nextStep.instruction}",
+                                style = MaterialTheme.typography.labelMedium,
                                 fontWeight = FontWeight.Bold,
-                                color = Color(0xFFFFD54F),
+                                color = Color.White.copy(alpha = 0.95f),
                                 maxLines = 1
                             )
                         }
                     }
                 }
-            }
-        } else {
-            // Sleek Floating Top Search Bar (Inline Live Google Places Search & Suggestions)
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(12.dp)
-                    .align(Alignment.TopCenter),
-                verticalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
+            } else {
+                // Top Search Bar Surface
                 Surface(
                     color = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
                     shape = RoundedCornerShape(20.dp),
@@ -1420,278 +1073,382 @@ fun TruckLvrMapScreen(
                                     .padding(horizontal = 6.dp)
                             ) {
                                 Row(
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .padding(horizontal = 14.dp),
+                                    modifier = Modifier.padding(horizontal = 12.dp),
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
                                     Icon(
                                         imageVector = Icons.Default.Search,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                        modifier = Modifier.size(20.dp)
+                                        contentDescription = "Search Destination",
+                                        tint = MaterialTheme.colorScheme.onPrimaryContainer
                                     )
                                     Text(
                                         text = if (destinationAddressText.isNotBlank()) destinationAddressText else "Search Destination...",
-                                        maxLines = 1,
-                                        fontWeight = FontWeight.Bold,
                                         style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                        maxLines = 1
                                     )
                                 }
                             }
                         }
                     } else {
-                        // Active Inline Text Input Mode directly in top search bar
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 8.dp, vertical = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        Column(
+                            modifier = Modifier.padding(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            IconButton(
-                                onClick = {
-                                    isInlineSearching = false
-                                    inlinePredictions = emptyList()
-                                },
-                                modifier = Modifier.size(40.dp)
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                    contentDescription = "Exit Search",
-                                    tint = MaterialTheme.colorScheme.primary
+                                IconButton(
+                                    onClick = { isInlineSearching = false }
+                                ) {
+                                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Exit Search")
+                                }
+
+                                OutlinedTextField(
+                                    value = inlineSearchInput,
+                                    onValueChange = { query ->
+                                        inlineSearchInput = query
+                                        inlineSearchJob?.cancel()
+                                        if (query.length >= 2) {
+                                            isInlineLoading = true
+                                            inlineSearchJob = scope.launch {
+                                                delay(250)
+                                                val res = TruckPlacesService.getPlacePredictions("AIzaSyAcscUaSZ1EGCuTGb81kgLD4ul92DXpn5E", query)
+                                                inlinePredictions = res
+                                                isInlineLoading = false
+                                            }
+                                        } else {
+                                            inlinePredictions = emptyList()
+                                            isInlineLoading = false
+                                        }
+                                    },
+                                    placeholder = { Text("Search address, place or truck stop...") },
+                                    singleLine = true,
+                                    modifier = Modifier.weight(1f),
+                                    trailingIcon = {
+                                        if (inlineSearchInput.isNotEmpty()) {
+                                            IconButton(onClick = {
+                                                inlineSearchInput = ""
+                                                inlinePredictions = emptyList()
+                                            }) {
+                                                Icon(Icons.Default.Close, contentDescription = "Clear Search")
+                                            }
+                                        }
+                                    }
                                 )
                             }
 
-                            OutlinedTextField(
-                                value = inlineSearchInput,
-                                onValueChange = { input ->
-                                    inlineSearchInput = input
-                                    inlineSearchJob?.cancel()
-
-                                    val clean = input.trim()
-                                    if (clean.length >= 2) {
-                                        isInlineLoading = true
-                                        inlineSearchJob = scope.launch {
-                                            delay(200L)
-                                            val results = TruckPlacesService.getPlacePredictions("AIzaSyAcscUaSZ1EGCuTGb81kgLD4ul92DXpn5E", clean)
-                                            inlinePredictions = results
-                                            isInlineLoading = false
-                                        }
-                                    } else {
-                                        inlinePredictions = emptyList()
-                                        isInlineLoading = false
-                                    }
-                                },
-                                placeholder = { Text("Search address, place or truck stop...") },
-                                singleLine = true,
-                                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                                keyboardActions = KeyboardActions(
-                                    onSearch = {
-                                        val query = inlineSearchInput.trim()
-                                        if (query.isNotBlank()) {
-                                            inlinePredictions = emptyList()
-                                            isInlineLoading = true
-                                            scope.launch {
-                                                val loc = TruckPlacesService.geocodeAddress("AIzaSyAcscUaSZ1EGCuTGb81kgLD4ul92DXpn5E", query, context)
-                                                isInlineLoading = false
-                                                isInlineSearching = false
-                                                if (loc != null && (loc.latitude != 0.0 || loc.longitude != 0.0)) {
-                                                    SearchHistoryManager.addSearchItem(context, query, query, loc)
-                                                    calculateRoute(loc, query)
-                                                } else {
-                                                    Toast.makeText(context, "Could not find location for '$query'", Toast.LENGTH_SHORT).show()
-                                                }
-                                            }
-                                        }
-                                    }
-                                ),
-                                trailingIcon = {
-                                    if (isInlineLoading) {
-                                        CircularProgressIndicator(
-                                            modifier = Modifier.size(20.dp),
-                                            strokeWidth = 2.dp,
-                                            color = MaterialTheme.colorScheme.primary
-                                        )
-                                    } else if (inlineSearchInput.isNotBlank()) {
-                                        IconButton(
-                                            onClick = {
-                                                inlineSearchInput = ""
-                                                inlinePredictions = emptyList()
-                                            }
-                                        ) {
-                                            Icon(Icons.Default.Close, contentDescription = "Clear Input")
-                                        }
-                                    }
-                                },
-                                modifier = Modifier.weight(1f)
-                            )
-                        }
-                    }
-                }
-
-                // Live Autocomplete Suggestions Card Floating Underneath Search Bar
-                if (isInlineSearching) {
-                    if (inlinePredictions.isNotEmpty()) {
-                        Surface(
-                            shape = RoundedCornerShape(16.dp),
-                            color = MaterialTheme.colorScheme.surface,
-                            shadowElevation = 10.dp,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .heightIn(max = 380.dp)
-                        ) {
-                            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-                                inlinePredictions.forEach { p ->
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .clickable {
-                                                inlineSearchInput = p.fullDescription
-                                                inlinePredictions = emptyList()
-                                                isInlineLoading = true
-                                                scope.launch {
-                                                    val details = TruckPlacesService.getPlaceDetails(
-                                                        apiKey = "AIzaSyAcscUaSZ1EGCuTGb81kgLD4ul92DXpn5E",
-                                                        placeId = p.placeId,
-                                                        fallbackAddress = p.fullDescription,
-                                                        context = context
-                                                    )
-                                                    isInlineLoading = false
-                                                    isInlineSearching = false
-
-                                                    val destLoc = details?.location
-                                                    val destAddr = details?.formattedAddress ?: p.fullDescription
-
-                                                    if (destLoc != null && (destLoc.latitude != 0.0 || destLoc.longitude != 0.0)) {
-                                                        SearchHistoryManager.addSearchItem(context, p.primaryText, destAddr, destLoc)
-                                                        calculateRoute(destLoc, destAddr)
-                                                    } else {
-                                                        Toast.makeText(context, "Could not find coordinates for '${p.primaryText}'", Toast.LENGTH_SHORT).show()
-                                                    }
-                                                }
-                                            }
-                                            .padding(14.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.LocationOn,
-                                            contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.primary,
-                                            modifier = Modifier.size(22.dp)
-                                        )
-                                        Column(modifier = Modifier.weight(1f)) {
-                                            Text(
-                                                p.primaryText,
-                                                fontWeight = FontWeight.Bold,
-                                                style = MaterialTheme.typography.bodyMedium
-                                            )
-                                            if (p.secondaryText.isNotBlank()) {
-                                                Text(
-                                                    p.secondaryText,
-                                                    style = MaterialTheme.typography.labelSmall,
-                                                    color = MaterialTheme.colorScheme.secondary
-                                                )
-                                            }
-                                        }
-                                    }
-                                    HorizontalDivider()
+                            if (isInlineLoading) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().padding(8.dp),
+                                    horizontalArrangement = Arrangement.Center
+                                ) {
+                                    CircularProgressIndicator(modifier = Modifier.size(24.dp))
                                 }
                             }
-                        }
-                    } else if (inlineSearchInput.isBlank() && recentInlineSearches.isNotEmpty()) {
-                        // Display Recent Searches History
-                        Surface(
-                            shape = RoundedCornerShape(16.dp),
-                            color = MaterialTheme.colorScheme.surface,
-                            shadowElevation = 10.dp,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Column(modifier = Modifier.padding(8.dp)) {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 8.dp, vertical = 4.dp),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
+
+                            val activePredictions = inlinePredictions
+                            if (activePredictions.isNotEmpty()) {
+                                Column(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalArrangement = Arrangement.spacedBy(2.dp)
                                 ) {
-                                    Text(
-                                        "Recent Searches",
-                                        style = MaterialTheme.typography.labelMedium,
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.primary
-                                    )
-                                    TextButton(
-                                        onClick = {
-                                            SearchHistoryManager.clearSearchHistory(context)
-                                            recentInlineSearches = emptyList()
-                                        }
-                                    ) {
-                                        Text("Clear History", style = MaterialTheme.typography.labelSmall)
-                                    }
-                                }
-                                HorizontalDivider()
-
-                                recentInlineSearches.take(5).forEach { item ->
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .clickable {
-                                                isInlineSearching = false
-                                                val initialLoc = LatLng(item.latitude, item.longitude)
-                                                val destAddr = item.formattedAddress
-
-                                                scope.launch {
-                                                    val resolvedLoc = if (initialLoc.latitude == 0.0 && initialLoc.longitude == 0.0) {
-                                                        TruckPlacesService.geocodeAddress("AIzaSyAcscUaSZ1EGCuTGb81kgLD4ul92DXpn5E", destAddr, context)
-                                                    } else {
-                                                        initialLoc
+                                    activePredictions.forEach { pred ->
+                                        Surface(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .clickable {
+                                                    isInlineSearching = false
+                                                    recentInlineSearches = SearchHistoryManager.getRecentSearches(context)
+                                                    scope.launch {
+                                                        val details = TruckPlacesService.getPlaceDetails("AIzaSyAcscUaSZ1EGCuTGb81kgLD4ul92DXpn5E", pred.placeId)
+                                                        if (details != null) {
+                                                            SearchHistoryManager.addSearchItem(context, pred.primaryText, details.formattedAddress, details.location)
+                                                            calculateRoute(details.location, details.formattedAddress)
+                                                        } else {
+                                                            Toast.makeText(context, "Could not locate ${pred.primaryText}", Toast.LENGTH_SHORT).show()
+                                                        }
                                                     }
-
-                                                    if (resolvedLoc != null && (resolvedLoc.latitude != 0.0 || resolvedLoc.longitude != 0.0)) {
-                                                        SearchHistoryManager.addSearchItem(context, item.title, destAddr, resolvedLoc)
-                                                        calculateRoute(resolvedLoc, destAddr)
-                                                    } else {
-                                                        Toast.makeText(context, "Could not locate '${item.title}'. Please search again.", Toast.LENGTH_SHORT).show()
-                                                    }
+                                                },
+                                            color = MaterialTheme.colorScheme.surface
+                                        ) {
+                                            Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
+                                                Text(pred.primaryText, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                                                if (pred.secondaryText.isNotBlank()) {
+                                                    Text(pred.secondaryText, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
                                                 }
                                             }
-                                            .padding(12.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.LocationOn,
-                                            contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.secondary,
-                                            modifier = Modifier.size(20.dp)
-                                        )
-                                        Column(modifier = Modifier.weight(1f)) {
-                                            Text(
-                                                item.title,
-                                                fontWeight = FontWeight.Bold,
-                                                style = MaterialTheme.typography.bodyMedium
-                                            )
-                                            if (item.formattedAddress.isNotBlank()) {
-                                                Text(
-                                                    item.formattedAddress,
-                                                    style = MaterialTheme.typography.labelSmall,
-                                                    color = MaterialTheme.colorScheme.secondary
-                                                )
-                                            }
                                         }
+                                        HorizontalDivider()
                                     }
-                                    HorizontalDivider()
                                 }
                             }
                         }
                     }
                 }
             }
+
+            // 2. Secondary Info Cards Row (Truck Specs Left + Weather Badge Right)
+            if (!isInlineSearching) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.Top
+                ) {
+                    // Truck Spec Card (Left)
+                    Card(
+                        onClick = onOpenDrawer,
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f)),
+                        shape = RoundedCornerShape(12.dp),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                            verticalArrangement = Arrangement.spacedBy(1.dp)
+                        ) {
+                            Text(
+                                text = truckProfile.profileName,
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            val weightFormatted = if (truckProfile.weightLbs >= 1000) "${(truckProfile.weightLbs / 1000.0).toInt()}k lbs" else "${truckProfile.weightLbs.toInt()} lbs"
+                            Text(
+                                text = "${truckProfile.formattedHeight} | ${weightFormatted} | ${truckProfile.maxSpeedMph} MPH",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            if (truckProfile.isHazmat) {
+                                Text(
+                                    text = "Hazmat Class 1-9",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFFD32F2F)
+                                )
+                            }
+                        }
+                    }
+
+                    // Weather Badge Card (Right)
+                    val currentWeather = currentCityWeather
+                    if (currentWeather != null) {
+                        Surface(
+                            color = when {
+                                currentWeather.isSevereWindRolloverRisk -> Color(0xFFD32F2F)
+                                currentWeather.isHighWindWarning -> Color(0xFFF57C00)
+                                else -> MaterialTheme.colorScheme.surface.copy(alpha = 0.94f)
+                            },
+                            shape = RoundedCornerShape(12.dp),
+                            shadowElevation = 6.dp
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Text(
+                                    text = if (currentWeather.windGustsMph >= 30) "💨" else "🌤️",
+                                    style = MaterialTheme.typography.titleSmall
+                                )
+                                Column {
+                                    Text(
+                                        text = "${currentWeather.tempFahrenheit}°F • ${currentWeather.weatherDescription}",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (currentWeather.isHighWindWarning) Color.White else MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Text(
+                                        text = "Wind: ${currentWeather.formattedWindText}",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        color = if (currentWeather.isHighWindWarning) Color.White else MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 3. Bridge Clearance Hazards
+            val primaryBridgeHazard = activeRouteHazards.firstOrNull()
+            if (primaryBridgeHazard != null && routeResult != null && !isInlineSearching) {
+                Surface(
+                    color = Color(0xFFD32F2F),
+                    shape = RoundedCornerShape(12.dp),
+                    shadowElevation = 6.dp,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text("🚨", style = MaterialTheme.typography.titleMedium)
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "${primaryBridgeHazard.title.uppercase()} (${String.format(Locale.US, "%.1f", primaryBridgeHazard.distanceMiles)} MI AHEAD)",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = Color.White
+                            )
+                            Text(
+                                text = primaryBridgeHazard.description,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Color.White.copy(alpha = 0.95f)
+                            )
+                        }
+                    }
+                }
+            }
+
+            // 4. High-Wind Rollover Hazard Warning Banner
+            val currentWeather = currentCityWeather
+            if (currentWeather != null && currentWeather.windGustsMph >= 35 && !isInlineSearching) {
+                Surface(
+                    color = Color(0xFFD32F2F),
+                    shape = RoundedCornerShape(12.dp),
+                    shadowElevation = 6.dp,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text("⚠️", style = MaterialTheme.typography.titleMedium)
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "HIGH WIND ROLLOVER WARNING (${currentWeather.windGustsMph} MPH GUSTS)",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = Color.White
+                            )
+                            Text(
+                                text = "High-profile light / empty 53ft trailers exercise extreme caution or hold in safe truck parking.",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Color.White.copy(alpha = 0.95f)
+                            )
+                        }
+                    }
+                }
+            }
+
+            // 5. Route HOS Rest Break Banner with "Edit HOS Clocks" Action
+            val hosReq = activeHosRequirement
+            if (hosReq != null && routeResult != null && (hosReq.requires30MinBreak || hosReq.requires10HourReset) && !isInlineSearching) {
+                Surface(
+                    color = Color(0xFF1565C0),
+                    shape = RoundedCornerShape(12.dp),
+                    shadowElevation = 6.dp,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier.padding(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text("⏱️", style = MaterialTheme.typography.titleMedium)
+                            Column(modifier = Modifier.weight(1f)) {
+                                val headerText = if (hosReq.requires10HourReset) {
+                                    "HOS 10H SLEEPER RESET REQUIRED (11H DRIVE LIMIT)"
+                                } else {
+                                    "HOS 30M REST BREAK REQUIRED (8H DRIVE LIMIT)"
+                                }
+                                Text(
+                                    text = headerText,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = Color.White
+                                )
+                                val locationDesc = if (hosReq.requires10HourReset) {
+                                    "Scheduled 10h Sleeper Berth Reset at ${hosReq.resetRecommendedLocation}."
+                                } else {
+                                    "Scheduled 30m Rest Break at ${hosReq.breakRecommendedLocation}."
+                                }
+                                Text(
+                                    text = locationDesc,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = Color.White.copy(alpha = 0.95f)
+                                )
+                            }
+                        }
+
+                        OutlinedButton(
+                            onClick = { showHosTripStartDialog = true },
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
+                            border = BorderStroke(1.dp, Color.White),
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.fillMaxWidth().height(28.dp),
+                            contentPadding = PaddingValues(0.dp)
+                        ) {
+                            Text("Edit HOS Clocks & Recalculate Rest Stops", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+
+            // 6. FMCSA § 392.9 Flatbed Load Securement Checkpoint Banner
+            if (showSecurementWarningBanner && truckProfile.isFlatbedOrOpenCargo && !isInlineSearching) {
+                Surface(
+                    color = Color(0xFFD32F2F),
+                    shape = RoundedCornerShape(12.dp),
+                    shadowElevation = 6.dp,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier.padding(10.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text("⚠️", style = MaterialTheme.typography.titleMedium)
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "MANDATORY LOAD SECUREMENT CHECK (FMCSA § 392.9)",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = Color.White
+                                )
+                                val checkLabel = if (securementCheckTargetMiles == 50) "First 50 Miles Traveled" else "150 Miles Traveled"
+                                Text(
+                                    text = "$checkLabel. Inspect straps, chains, binders, tarps, and edge protectors at next safe stop.",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = Color.White.copy(alpha = 0.95f)
+                                )
+                            }
+                        }
+
+                        Button(
+                            onClick = {
+                                showSecurementWarningBanner = false
+                                lastSecurementCheckMiles = totalFlatbedMilesTraveled
+                                securementCheckTargetMiles = 150
+                                Toast.makeText(context, "Cargo securement check recorded! Counter reset for 150 miles.", Toast.LENGTH_LONG).show()
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color(0xFFD32F2F)),
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("✔ Straps & Chains Inspected & Tight", fontWeight = FontWeight.ExtraBold)
+                        }
+                    }
+                }
+            }
         }
+
+
 
         // Bottom HUD Route Summary & Expandable Options (Clean Design)
         val res = routeResult
